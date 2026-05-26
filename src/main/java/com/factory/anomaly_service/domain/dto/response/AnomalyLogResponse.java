@@ -9,30 +9,63 @@ import java.time.LocalDateTime;
 
 public record AnomalyLogResponse(
         Long logId,
-        Long equipmentId,
-        Long equipmentRecipeId,
-        String recipeParameter,
+
         Severity severity,
-        LocalDateTime occurredTime,
+        String statusLabel,
+
+        Long processId,
+        String processName,
+
+        Long equipmentId,
+        String equipmentName,
+
+        Long equipmentRecipeId,
+
+        String recipeParameter,
         RuleName ruleName,
         AnomalyType anomalyType,
-        LocalDateTime windowStartTime,
-        Integer sampleCount,
+
+        LocalDateTime occurredTime,
         String detectionReason
 ) {
+
     public static AnomalyLogResponse from(AnomalyLogEntity entity) {
+        var equipment = entity.getEquipment();
+        var process = equipment != null ? equipment.getProcess() : null;
+        var equipmentRecipe = entity.getEquipmentRecipe();
+
         return new AnomalyLogResponse(
                 entity.getLogId(),
-                entity.getEquipment() != null ? entity.getEquipment().getEquipmentId() : null,
-                entity.getEquipmentRecipe() != null ? entity.getEquipmentRecipe().getEquipmentRecipeId() : null,
-                entity.getRecipeParameter(),
+
                 entity.getSeverity(),
-                entity.getOccurredTime(),
+                toStatusLabel(entity.getSeverity()),
+
+                process != null ? process.getProcessId() : null,
+                process != null ? process.getProcessName() : null,
+
+                equipment != null ? equipment.getEquipmentId() : null,
+                equipment != null ? equipment.getEquipmentName() : null,
+
+                equipmentRecipe != null ? equipmentRecipe.getEquipmentRecipeId() : null,
+
+                entity.getRecipeParameter(),
                 entity.getRuleName(),
                 entity.getAnomalyType(),
-                entity.getWindowStartTime(),
-                entity.getSampleCount(),
+
+                entity.getOccurredTime(),
                 entity.getDetectionReason()
         );
+    }
+
+    private static String toStatusLabel(Severity severity) {
+        if (severity == null) {
+            return null;
+        }
+
+        return switch (severity) {
+            case CRITICAL -> "긴급";
+            case WARNING -> "경고";
+            case CAUTION -> "주의";
+        };
     }
 }

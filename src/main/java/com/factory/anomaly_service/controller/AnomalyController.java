@@ -8,14 +8,18 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/anomalies")
+@RequestMapping("/api/anomalies")
 @RequiredArgsConstructor
 public class AnomalyController {
 
     private final AnomalyService anomalyService;
 
     @GetMapping
-    public List<AnomalyLogResponse> getAnomalyLogs() {
-        return anomalyService.getAnomalyLogs();
+    public List<AnomalyLogResponse> getAnomalyLogs(
+            @RequestParam(required = false) Long processId,
+            @RequestParam(required = false) Long equipmentId,
+            @RequestParam(required = false) String keyword
+    ) {
+        return anomalyService.getAnomalyLogs(processId, equipmentId, keyword);
     }
 }

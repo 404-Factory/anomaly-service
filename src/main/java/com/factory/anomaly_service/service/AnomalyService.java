@@ -15,10 +15,24 @@ public class AnomalyService {
 
     private final AnomalyLogRepository anomalyLogRepository;
 
-    public List<AnomalyLogResponse> getAnomalyLogs() {
-        return anomalyLogRepository.findAll()
+    public List<AnomalyLogResponse> getAnomalyLogs(
+            Long processId,
+            Long equipmentId,
+            String keyword
+    ) {
+        String normalizedKeyword = normalizeKeyword(keyword);
+
+        return anomalyLogRepository.findAnomalyLogs(processId, equipmentId, normalizedKeyword)
                 .stream()
                 .map(AnomalyLogResponse::from)
                 .toList();
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+
+        return keyword.trim();
     }
 }
