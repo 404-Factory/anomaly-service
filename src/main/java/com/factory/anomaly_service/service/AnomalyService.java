@@ -1,7 +1,12 @@
 package com.factory.anomaly_service.service;
 
+import com.factory.anomaly_service.domain.dto.response.AnomalyLogDetailResponse;
 import com.factory.anomaly_service.domain.dto.response.AnomalyLogResponse;
+import com.factory.anomaly_service.domain.entity.EquipmentRecipeDetailEntity;
+import com.factory.anomaly_service.exception.AnomalyErrorCode;
+import com.factory.anomaly_service.exception.AnomalyException;
 import com.factory.anomaly_service.repository.AnomalyLogRepository;
+import com.factory.anomaly_service.repository.EquipmentRecipeDetailRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +19,7 @@ import java.util.List;
 public class AnomalyService {
 
     private final AnomalyLogRepository anomalyLogRepository;
+    private final EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
 
     public List<AnomalyLogResponse> getAnomalyLogs(
             Long processId,
@@ -26,6 +32,24 @@ public class AnomalyService {
                 .stream()
                 .map(AnomalyLogResponse::from)
                 .toList();
+    }
+
+    public AnomalyLogDetailResponse getAnomalyLogDetail(Long anomalyId) {
+        var anomalyLog = anomalyLogRepository.findById(anomalyId)
+                .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANOMALY_LOG_NOT_FOUND));
+
+        EquipmentRecipeDetailEntity recipeDetail = null;
+
+        if (anomalyLog.getEquipmentRecipe() != null && anomalyLog.getRecipeParameter() != null) {
+            recipeDetail = equipmentRecipeDetailRepository
+                    .findByEquipmentRecipe_EquipmentRecipeIdAndRecipeParameter(
+                            anomalyLog.getEquipmentRecipe().getEquipmentRecipeId(),
+                            anomalyLog.getRecipeParameter()
+                    )
+                    .orElse(null);
+        }
+
+        return AnomalyLogDetailResponse.of(anomalyLog, recipeDetail);
     }
 
     private String normalizeKeyword(String keyword) {

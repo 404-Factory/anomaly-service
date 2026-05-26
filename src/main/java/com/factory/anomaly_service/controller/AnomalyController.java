@@ -1,5 +1,6 @@
 package com.factory.anomaly_service.controller;
 
+import com.factory.anomaly_service.domain.dto.response.AnomalyLogDetailResponse;
 import com.factory.anomaly_service.domain.dto.response.AnomalyLogResponse;
 import com.factory.anomaly_service.service.AnomalyService;
 import lombok.RequiredArgsConstructor;
@@ -21,5 +22,12 @@ public class AnomalyController {
             @RequestParam(required = false) String keyword
     ) {
         return anomalyService.getAnomalyLogs(processId, equipmentId, keyword);
+    }
+
+    @GetMapping("/{anomalyId}")
+    public AnomalyLogDetailResponse getAnomalyLogDetail(
+            @PathVariable Long anomalyId
+    ) {
+        return anomalyService.getAnomalyLogDetail(anomalyId);
     }
 }

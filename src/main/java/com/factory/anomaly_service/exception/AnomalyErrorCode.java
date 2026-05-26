@@ -3,7 +3,8 @@ package com.factory.anomaly_service.exception;
 import com.factory.common.core.exception.ErrorCode;
 
 public enum AnomalyErrorCode implements ErrorCode {
-    ;
+
+    ANOMALY_LOG_NOT_FOUND(404, "ANOMALY404", "이상 로그를 찾을 수 없습니다.");
 
     private final int status;
     private final String code;
