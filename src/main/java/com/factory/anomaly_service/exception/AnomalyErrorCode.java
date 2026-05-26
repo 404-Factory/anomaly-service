@@ -1,4 +1,4 @@
-package com.factory.anomaly.exception;
+package com.factory.anomaly_service.exception;
 
 import com.factory.common.core.exception.ErrorCode;
 

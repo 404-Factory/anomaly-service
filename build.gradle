@@ -18,6 +18,9 @@ dependencies {
 	// Spring Boot Actuator
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
+	// MariaDB
+	runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
+
 	// Lombok
 	annotationProcessor 'org.projectlombok:lombok'
 	compileOnly 'org.projectlombok:lombok'
