@@ -1,4 +1,4 @@
-package com.factory.anomaly;
+package com.factory.anomaly_service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
