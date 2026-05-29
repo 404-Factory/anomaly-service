@@ -1,15 +1,12 @@
-# docker build --build-arg JAR_FILE=path/myapp.jar if you need to specify the path
-
-FROM eclipse-temurin:17-jdk-alpine as builder
+FROM eclipse-temurin:17-jdk-alpine AS extractor
 WORKDIR /builder
-ARG JAR_FILE=build/libs/*.jar
-COPY ${JAR_FILE} application.jar
+COPY build/libs/*.jar application.jar
 RUN java -Djarmode=tools -jar application.jar extract --layers --destination extracted
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-COPY --from=builder /builder/extracted/dependencies/ ./
-COPY --from=builder /builder/extracted/spring-boot-loader/ ./
-COPY --from=builder /builder/extracted/snapshot-dependencies/ ./
-COPY --from=builder /builder/extracted/application/ ./
+COPY --from=extractor /builder/extracted/dependencies/ ./
+COPY --from=extractor /builder/extracted/spring-boot-loader/ ./
+COPY --from=extractor /builder/extracted/snapshot-dependencies/ ./
+COPY --from=extractor /builder/extracted/application/ ./
 ENTRYPOINT ["java", "-jar", "application.jar"]
