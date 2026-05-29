@@ -14,14 +14,20 @@ import com.factory.anomaly_service.repository.EquipmentRecipeDetailRepository;
 import com.factory.anomaly_service.repository.EquipmentRecipeRepository;
 import com.factory.anomaly_service.repository.EquipmentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Redis 센서 시계열 데이터를 조회해 RuleEngine으로 이상 여부를 판단하고,
+ * 감지 결과를 센서 단위 ANOMALY_LOG로 저장한다.
+ *
+ * ALERT 생성, 중복 알림 방지, 설비 단위 대표 심각도 계산은 alert-service의 책임이다.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -47,6 +53,13 @@ public class AnomalyDetectionService {
             String sensorType,
             LocalDateTime detectedAt
     ) {
+        log.info(
+                "Start anomaly detection. equipmentCode={}, sensorType={}, detectedAt={}",
+                equipmentCode,
+                sensorType,
+                detectedAt
+        );
+
         List<SensorSample> fiveMinuteRedisSamples = sensorRedisRepository.findSamples(
                 equipmentCode,
                 sensorType,
@@ -55,7 +68,20 @@ public class AnomalyDetectionService {
                 0
         );
 
+        log.info(
+                "Five-minute Redis samples loaded. equipmentCode={}, sensorType={}, sampleCount={}",
+                equipmentCode,
+                sensorType,
+                fiveMinuteRedisSamples.size()
+        );
+
         if (fiveMinuteRedisSamples.isEmpty()) {
+            log.warn(
+                    "Skip anomaly detection. reason=NO_REDIS_SAMPLES, equipmentCode={}, sensorType={}, detectedAt={}",
+                    equipmentCode,
+                    sensorType,
+                    detectedAt
+            );
             return Optional.empty();
         }
 
@@ -67,21 +93,39 @@ public class AnomalyDetectionService {
                 0
         );
 
+        log.info(
+                "One-minute Redis samples loaded. equipmentCode={}, sensorType={}, sampleCount={}",
+                equipmentCode,
+                sensorType,
+                oneMinuteRedisSamples.size()
+        );
+
+        // Redis 조회 DTO를 RuleEngine 전용 입력 모델로 변환해 외부 저장소 의존성을 분리한다.
         List<RuleSensorSample> fiveMinuteSamples = toRuleSamples(fiveMinuteRedisSamples);
         List<RuleSensorSample> oneMinuteSamples = toRuleSamples(oneMinuteRedisSamples);
 
         Optional<EquipmentEntity> equipmentOptional = equipmentRepository.findByEquipmentName(equipmentCode);
 
         if (equipmentOptional.isEmpty()) {
+            log.warn(
+                    "Skip anomaly detection. reason=EQUIPMENT_NOT_FOUND, equipmentCode={}",
+                    equipmentCode
+            );
             return Optional.empty();
         }
 
         EquipmentEntity equipment = equipmentOptional.get();
 
+        // 현재 DB에는 active recipe 컬럼이 없으므로 가장 높은 version을 현재 적용 Recipe로 간주한다.
         Optional<EquipmentRecipeEntity> equipmentRecipeOptional = equipmentRecipeRepository
                 .findTopByEquipment_EquipmentIdOrderByVersionDesc(equipment.getEquipmentId());
 
         if (equipmentRecipeOptional.isEmpty()) {
+            log.warn(
+                    "Skip anomaly detection. reason=EQUIPMENT_RECIPE_NOT_FOUND, equipmentId={}, equipmentCode={}",
+                    equipment.getEquipmentId(),
+                    equipmentCode
+            );
             return Optional.empty();
         }
 
@@ -94,10 +138,23 @@ public class AnomalyDetectionService {
                 );
 
         if (recipeDetailOptional.isEmpty()) {
+            log.warn(
+                    "Skip anomaly detection. reason=RECIPE_DETAIL_NOT_FOUND, equipmentRecipeId={}, sensorType={}",
+                    equipmentRecipe.getEquipmentRecipeId(),
+                    sensorType
+            );
             return Optional.empty();
         }
 
         EquipmentRecipeDetailEntity recipeDetail = recipeDetailOptional.get();
+
+        log.info(
+                "Recipe threshold loaded. equipmentRecipeId={}, sensorType={}, minValue={}, maxValue={}",
+                equipmentRecipe.getEquipmentRecipeId(),
+                sensorType,
+                recipeDetail.getMinValue(),
+                recipeDetail.getMaxValue()
+        );
 
         RuleResult ruleResult = ruleEngine.evaluate(
                 fiveMinuteSamples,
@@ -107,8 +164,23 @@ public class AnomalyDetectionService {
         );
 
         if (!ruleResult.detected()) {
+            log.info(
+                    "No anomaly detected. equipmentCode={}, sensorType={}, reason={}",
+                    equipmentCode,
+                    sensorType,
+                    ruleResult.reason()
+            );
             return Optional.empty();
         }
+
+        log.warn(
+                "Anomaly detected. equipmentCode={}, sensorType={}, ruleName={}, anomalyType={}, severity={}",
+                equipmentCode,
+                sensorType,
+                ruleResult.ruleName(),
+                ruleResult.anomalyType(),
+                ruleResult.severity()
+        );
 
         AnomalyLogEntity anomalyLog = AnomalyLogEntity.builder()
                 .equipment(equipment)
@@ -123,7 +195,19 @@ public class AnomalyDetectionService {
                 .detectionReason(ruleResult.reason())
                 .build();
 
-        return Optional.of(anomalyLogRepository.save(anomalyLog));
+        AnomalyLogEntity savedAnomalyLog = anomalyLogRepository.save(anomalyLog);
+
+        log.info(
+                "Anomaly log saved. logId={}, equipmentId={}, equipmentRecipeId={}, sensorType={}, severity={}, ruleName={}",
+                savedAnomalyLog.getLogId(),
+                equipment.getEquipmentId(),
+                equipmentRecipe.getEquipmentRecipeId(),
+                sensorType,
+                savedAnomalyLog.getSeverity(),
+                savedAnomalyLog.getRuleName()
+        );
+
+        return Optional.of(savedAnomalyLog);
     }
 
     private List<RuleSensorSample> toRuleSamples(List<SensorSample> redisSamples) {
