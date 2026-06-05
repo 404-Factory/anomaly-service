@@ -27,13 +27,17 @@ spec:
                 name: redis-secret
           env:
             - name: DB_NAME
-              value: "anomaly_db"
+              value: "factory_db"
             - name: DB_PORT
               value: "3306"
             - name: REDIS_PORT
               value: "6379"
             - name: REDIS_SSL
               value: "true"
+            - name: DB_MAX_POOL_SIZE
+              value: "5"
+            - name: DB_MIN_IDLE
+              value: "2"
           resources:
             limits:
               memory: "512Mi"
