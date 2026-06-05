@@ -5,7 +5,7 @@ spring:
   application:
     name: anomaly-service
   profiles:
-    default: local
+    default: dev
 
 management:
   endpoints:
