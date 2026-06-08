@@ -31,6 +31,11 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
+app:
+  time-zone: Asia/Seoul
+  event:
+    publish-enabled: ${EVENT_PUBLISH_ENABLED:false}
+
 kafka:
   topic:
     anomaly-detected: ${KAFKA_TOPIC_ANOMALY_DETECTED:anomaly.detected}

@@ -1,5 +1,6 @@
 package com.factory.anomaly.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import com.factory.anomaly.engine.RuleEngine;
 import com.factory.anomaly.engine.RuleResult;
 import com.factory.anomaly.engine.RuleSensorSample;
@@ -48,6 +49,9 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
     private final EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
     private final EventPublisher eventPublisher;
     private final EventEnvelopeFactory eventEnvelopeFactory;
+
+    @Value("${app.event.publish-enabled:false}")
+    private boolean eventPublishEnabled;
 
     @Override
     public Optional<AnomalyLog> detect(String equipmentCode, String sensorType) {
@@ -232,7 +236,14 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 payload
         );
 
-        publishAfterCommit(eventEnvelope);
+        if (eventPublishEnabled) {
+            publishAfterCommit(eventEnvelope);
+        } else {
+            log.info(
+                    "Skip anomaly event publishing. reason=EVENT_PUBLISH_DISABLED, logId={}",
+                    savedAnomalyLog.getLogId()
+            );
+        }
 
         return Optional.of(savedAnomalyLog);
     }

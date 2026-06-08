@@ -5,7 +5,7 @@ spring:
   application:
     name: anomaly-service
   profiles:
-    active: local
+    default: local
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -42,4 +42,4 @@ management:
         include: health, info
   endpoint:
     health:
-      show-details: never
+      show-details: never
