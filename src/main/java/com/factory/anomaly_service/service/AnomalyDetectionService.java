@@ -13,6 +13,10 @@ import com.factory.anomaly_service.repository.AnomalyLogRepository;
 import com.factory.anomaly_service.repository.EquipmentRecipeDetailRepository;
 import com.factory.anomaly_service.repository.EquipmentRecipeRepository;
 import com.factory.anomaly_service.repository.EquipmentRepository;
+import com.factory.anomaly_service.event.AnomalyDetectedEvent;
+import com.factory.anomaly_service.event.AnomalyDetectedEventPublisher;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,6 +47,7 @@ public class AnomalyDetectionService {
     private final EquipmentRepository equipmentRepository;
     private final EquipmentRecipeRepository equipmentRecipeRepository;
     private final EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
+    private final AnomalyDetectedEventPublisher anomalyDetectedEventPublisher;
 
     public Optional<AnomalyLogEntity> detect(String equipmentCode, String sensorType) {
         return detect(equipmentCode, sensorType, LocalDateTime.now());
@@ -207,7 +212,37 @@ public class AnomalyDetectionService {
                 savedAnomalyLog.getRuleName()
         );
 
+        // Kafka AWS/MSK 설정 전까지 로컬 단일 감지 테스트에서는 비활성화
+        // anomaly_log -> kafka messaging
+//        AnomalyDetectedEvent event = new AnomalyDetectedEvent(
+//                savedAnomalyLog.getLogId(),
+//                String.valueOf(equipment.getEquipmentId()),
+//                savedAnomalyLog.getRecipeParameter(),
+//                savedAnomalyLog.getRuleName().name(),
+//                savedAnomalyLog.getAnomalyType().name(),
+//                savedAnomalyLog.getSeverity().name(),
+//                savedAnomalyLog.getOccurredTime().toString()
+//        );
+//
+//        publishAfterCommit(event);
+
         return Optional.of(savedAnomalyLog);
+    }
+
+    private void publishAfterCommit(AnomalyDetectedEvent event) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            anomalyDetectedEventPublisher.publish(event);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        anomalyDetectedEventPublisher.publish(event);
+                    }
+                }
+        );
     }
 
     private List<RuleSensorSample> toRuleSamples(List<SensorSample> redisSamples) {

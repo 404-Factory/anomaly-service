@@ -14,7 +14,7 @@ spring:
       ddl-auto: none
     properties:
       hibernate:
-        format_sql: true
+        format_sql: ${JPA_FORMAT_SQL:true}
         dialect: org.hibernate.dialect.MariaDBDialect
     show-sql: true
 
@@ -24,3 +24,13 @@ spring:
       port: ${REDIS_PORT:6380}
       ssl:
         enabled: ${REDIS_SSL:true}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+kafka:
+  topic:
+    anomaly-detected: ${KAFKA_TOPIC_ANOMALY_DETECTED:anomaly.detected}

@@ -28,6 +28,11 @@ dependencies {
 	// redis
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+	// Kafka
+	implementation 'org.springframework.kafka:spring-kafka'
+
+	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
