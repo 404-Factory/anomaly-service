@@ -8,6 +8,13 @@ version = "1.0.0"
 dependencies {
 	// common modules
 	implementation "com.factory.common:contract:1.0.5"
+	implementation 'com.factory.common:kafka:1.0.5'
+	implementation 'com.factory.common:inbox-jpa:1.0.5'
+
+	// platform BOM
+	implementation platform('com.factory:platform:1.0.5')
+	annotationProcessor platform('com.factory:platform:1.0.5')
+	testAnnotationProcessor platform('com.factory:platform:1.0.5')
 
 	// Spring Web
 	implementation "org.springframework.boot:spring-boot-starter-web"
@@ -36,8 +43,11 @@ dependencies {
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
 }
+
 
 tasks.named('test') {
 	useJUnitPlatform()
 }
+

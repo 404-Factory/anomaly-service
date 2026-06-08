@@ -5,7 +5,35 @@ spring:
   application:
     name: anomaly-service
   profiles:
-    default: local
+    active: local
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+        spring.json.add.type.headers: false
+
+    consumer:
+      group-id: anomaly-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+sigma:
+  event:
+    consumer:
+      topics:
+        - "management-projection"
+      groupId: "anomaly-consumer-group"
+    producer:
+      topic: "management-event"
 
 management:
   endpoints:
@@ -14,4 +42,4 @@ management:
         include: health, info
   endpoint:
     health:
-      show-details: never
+      show-details: never

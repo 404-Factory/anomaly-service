@@ -1,0 +1,11 @@
+package com.factory.anomaly.config;
+
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+
+@Configuration
+@EnableJpaRepositories(basePackages = "com.factory.anomaly")
+@EntityScan(basePackages = "com.factory.anomaly")
+public class JpaConfig {
+}
