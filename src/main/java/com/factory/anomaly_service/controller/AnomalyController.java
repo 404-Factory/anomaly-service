@@ -1,7 +1,9 @@
 package com.factory.anomaly_service.controller;
 
+import com.factory.anomaly_service.domain.dto.response.AnomalyContextResponse;
 import com.factory.anomaly_service.domain.dto.response.AnomalyLogDetailResponse;
 import com.factory.anomaly_service.domain.dto.response.AnomalyLogResponse;
+import com.factory.anomaly_service.service.AnomalyContextService;
 import com.factory.anomaly_service.service.AnomalyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +16,7 @@ import java.util.List;
 public class AnomalyController {
 
     private final AnomalyService anomalyService;
+    private final AnomalyContextService anomalyContextService;
 
     @GetMapping
     public List<AnomalyLogResponse> getAnomalyLogs(
@@ -29,5 +32,12 @@ public class AnomalyController {
             @PathVariable Long anomalyId
     ) {
         return anomalyService.getAnomalyLogDetail(anomalyId);
+    }
+
+    @GetMapping("/{anomalyId}/context")
+    public AnomalyContextResponse getAnomalyContext(
+            @PathVariable Long anomalyId
+    ) {
+        return anomalyContextService.getAnomalyContext(anomalyId);
     }
 }

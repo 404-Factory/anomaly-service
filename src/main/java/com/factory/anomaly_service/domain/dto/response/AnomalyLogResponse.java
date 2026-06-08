@@ -2,6 +2,7 @@ package com.factory.anomaly_service.domain.dto.response;
 
 import com.factory.anomaly_service.domain.entity.AnomalyLogEntity;
 import com.factory.anomaly_service.domain.type.AnomalyType;
+import com.factory.anomaly_service.domain.type.LogType;
 import com.factory.anomaly_service.domain.type.RuleName;
 import com.factory.anomaly_service.domain.type.Severity;
 
@@ -9,6 +10,8 @@ import java.time.LocalDateTime;
 
 public record AnomalyLogResponse(
         Long logId,
+
+        LogType logType,
 
         Severity severity,
         String statusLabel,
@@ -26,7 +29,9 @@ public record AnomalyLogResponse(
         AnomalyType anomalyType,
 
         LocalDateTime occurredTime,
-        String detectionReason
+        String detectionReason,
+
+        String relatedLogIds
 ) {
 
     public static AnomalyLogResponse from(AnomalyLogEntity entity) {
@@ -36,6 +41,8 @@ public record AnomalyLogResponse(
 
         return new AnomalyLogResponse(
                 entity.getLogId(),
+
+                entity.getLogType(),
 
                 entity.getSeverity(),
                 toStatusLabel(entity.getSeverity()),
@@ -53,7 +60,9 @@ public record AnomalyLogResponse(
                 entity.getAnomalyType(),
 
                 entity.getOccurredTime(),
-                entity.getDetectionReason()
+                entity.getDetectionReason(),
+
+                entity.getRelatedLogIds()
         );
     }
 

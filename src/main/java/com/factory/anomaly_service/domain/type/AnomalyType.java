@@ -6,5 +6,8 @@ public enum AnomalyType {
     TREND_UP,
     TREND_DOWN,
     BIAS_UP,
-    BIAS_DOWN
+    BIAS_DOWN,
+
+    MULTI_SENSOR_CAUTION,
+    MULTI_SENSOR_CRITICAL
 }

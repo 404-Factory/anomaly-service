@@ -17,3 +17,10 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MariaDBDialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+app:
+  time-zone: Asia/Seoul

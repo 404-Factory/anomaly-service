@@ -3,6 +3,7 @@ package com.factory.anomaly_service.domain.dto.response;
 import com.factory.anomaly_service.domain.entity.AnomalyLogEntity;
 import com.factory.anomaly_service.domain.entity.EquipmentRecipeDetailEntity;
 import com.factory.anomaly_service.domain.type.AnomalyType;
+import com.factory.anomaly_service.domain.type.LogType;
 import com.factory.anomaly_service.domain.type.RuleName;
 import com.factory.anomaly_service.domain.type.Severity;
 
@@ -10,6 +11,8 @@ import java.time.LocalDateTime;
 
 public record AnomalyLogDetailResponse(
         Long logId,
+
+        LogType logType,
 
         Severity severity,
         String statusLabel,
@@ -32,8 +35,15 @@ public record AnomalyLogDetailResponse(
         Integer sampleCount,
         String detectionReason,
 
+        String relatedLogIds,
+
         Double minValue,
-        Double maxValue
+        Double maxValue,
+
+        Double measuredValue,
+        Double referenceValue,
+        Double deviation,
+        Double deviationRate
 ) {
 
     public static AnomalyLogDetailResponse of(
@@ -47,6 +57,8 @@ public record AnomalyLogDetailResponse(
 
         return new AnomalyLogDetailResponse(
                 anomalyLog.getLogId(),
+
+                anomalyLog.getLogType(),
 
                 anomalyLog.getSeverity(),
                 toStatusLabel(anomalyLog.getSeverity()),
@@ -69,8 +81,15 @@ public record AnomalyLogDetailResponse(
                 anomalyLog.getSampleCount(),
                 anomalyLog.getDetectionReason(),
 
+                anomalyLog.getRelatedLogIds(),
+
                 recipeDetail != null ? recipeDetail.getMinValue() : null,
-                recipeDetail != null ? recipeDetail.getMaxValue() : null
+                recipeDetail != null ? recipeDetail.getMaxValue() : null,
+
+                anomalyLog.getMeasuredValue(),
+                anomalyLog.getReferenceValue(),
+                anomalyLog.getDeviation(),
+                anomalyLog.getDeviationRate()
         );
     }
 
