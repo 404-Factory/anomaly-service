@@ -3,6 +3,7 @@ package com.factory.anomaly_service.domain.entity;
 import com.factory.anomaly_service.domain.type.AnomalyType;
 import com.factory.anomaly_service.domain.type.RuleName;
 import com.factory.anomaly_service.domain.type.Severity;
+import com.factory.anomaly_service.domain.type.LogType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -55,4 +56,23 @@ public class AnomalyLogEntity {
 
     @Column(name = "detection_reason", length = 500)
     private String detectionReason;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "log_type", length = 30)
+    private LogType logType;
+
+    @Column(name = "related_log_ids", length = 500)
+    private String relatedLogIds;
+
+    @Column(name = "measured_value")
+    private Double measuredValue;
+
+    @Column(name = "reference_value")
+    private Double referenceValue;
+
+    @Column(name = "deviation")
+    private Double deviation;
+
+    @Column(name = "deviation_rate")
+    private Double deviationRate;
 }

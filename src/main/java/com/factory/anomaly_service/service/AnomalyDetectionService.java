@@ -7,6 +7,7 @@ import com.factory.anomaly_service.domain.entity.EquipmentRecipeEntity;
 import com.factory.anomaly_service.engine.RuleEngine;
 import com.factory.anomaly_service.engine.RuleResult;
 import com.factory.anomaly_service.engine.RuleSensorSample;
+import com.factory.anomaly_service.domain.type.LogType;
 import com.factory.anomaly_service.infrastructure.redis.SensorRedisRepository;
 import com.factory.anomaly_service.infrastructure.redis.SensorSample;
 import com.factory.anomaly_service.repository.AnomalyLogRepository;
@@ -195,9 +196,15 @@ public class AnomalyDetectionService {
                 .occurredTime(detectedAt)
                 .ruleName(ruleResult.ruleName())
                 .anomalyType(ruleResult.anomalyType())
+                .logType(LogType.SENSOR)
                 .windowStartTime(detectedAt.minusMinutes(FIVE_MINUTES))
                 .sampleCount(fiveMinuteSamples.size())
                 .detectionReason(ruleResult.reason())
+                .relatedLogIds(null)
+                .measuredValue(ruleResult.measuredValue())
+                .referenceValue(ruleResult.referenceValue())
+                .deviation(ruleResult.deviation())
+                .deviationRate(ruleResult.deviationRate())
                 .build();
 
         AnomalyLogEntity savedAnomalyLog = anomalyLogRepository.save(anomalyLog);
