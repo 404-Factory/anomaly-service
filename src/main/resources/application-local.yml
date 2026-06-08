@@ -19,8 +19,10 @@ spring:
         dialect: org.hibernate.dialect.MariaDBDialect
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      ssl:
+        enabled: ${REDIS_SSL:false}
 
 app:
   time-zone: Asia/Seoul
