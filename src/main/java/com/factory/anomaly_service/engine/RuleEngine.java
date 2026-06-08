@@ -83,6 +83,7 @@ public class RuleEngine {
             case NELSON_RULE_1 -> 1;
             case NELSON_RULE_3 -> 2;
             case BIAS_RATIO_RULE -> 3;
+            case COMPOSITE_RULE -> 4;
         };
     }
 
