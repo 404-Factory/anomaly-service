@@ -5,12 +5,13 @@ import com.factory.anomaly_service.domain.type.RuleName;
 import com.factory.anomaly_service.domain.type.Severity;
 import com.factory.anomaly_service.domain.type.LogType;
 import jakarta.persistence.*;
+import java.time.Instant;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ANOMALY_LOG")
+@Table(name = "anomalies")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
@@ -19,42 +20,33 @@ public class AnomalyLogEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "log_id", nullable = false)
-    private Long logId;
+    private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "equipment_id")
-    private EquipmentEntity equipment;
+    @Column(name = "equipment_id")
+    private String equipmentId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "equipment_rec_id")
-    private EquipmentRecipeEntity equipmentRecipe;
+    @Column(name = "equipment_recipe_id")
+    private String equipmentRecipeId;
 
     @Column(name = "recipe_parameter", length = 50)
     private String recipeParameter;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "severity", length = 30)
+    @Column(name = "severity")
     private Severity severity;
 
-    @Column(name = "occurred_time")
-    private LocalDateTime occurredTime;
-
     @Enumerated(EnumType.STRING)
-    @Column(name = "rule_name", length = 50, nullable = false)
+    @Column(name = "rule_name", nullable = false)
     private RuleName ruleName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "anomaly_type", length = 50, nullable = false)
+    @Column(name = "anomaly_type", nullable = false)
     private AnomalyType anomalyType;
-
-    @Column(name = "window_start_time")
-    private LocalDateTime windowStartTime;
 
     @Column(name = "sample_count")
     private Integer sampleCount;
 
-    @Column(name = "detection_reason", length = 500)
+    @Column(name = "detection_reason", columnDefinition = "TEXT")
     private String detectionReason;
 
     @Enumerated(EnumType.STRING)
@@ -75,4 +67,10 @@ public class AnomalyLogEntity {
 
     @Column(name = "deviation_rate")
     private Double deviationRate;
+
+    @Column(name = "first_detected_at")
+    private Instant firstDetectedAt;
+
+    @Column(name = "last_detected_at")
+    private Instant lastDetectedAt;
 }

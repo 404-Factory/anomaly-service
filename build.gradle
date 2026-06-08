@@ -7,7 +7,7 @@ version = "1.0.0"
 
 dependencies {
 	// common modules
-	implementation "com.factory.common:contract:1.0.1"
+	implementation "com.factory.common:contract:1.0.5"
 
 	// Spring Web
 	implementation "org.springframework.boot:spring-boot-starter-web"

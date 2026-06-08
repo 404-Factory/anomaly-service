@@ -1,7 +1,6 @@
 package com.factory.anomaly_service.domain.dto.response;
 
 import com.factory.anomaly_service.domain.entity.AnomalyLogEntity;
-import com.factory.anomaly_service.domain.entity.EquipmentRecipeDetailEntity;
 import com.factory.anomaly_service.domain.type.AnomalyType;
 import com.factory.anomaly_service.domain.type.LogType;
 import com.factory.anomaly_service.domain.type.RuleName;
@@ -11,25 +10,18 @@ import java.time.LocalDateTime;
 
 public record AnomalyLogDetailResponse(
         Long logId,
-
         LogType logType,
-
         Severity severity,
         String statusLabel,
-
         Long processId,
         String processName,
-
         Long equipmentId,
         String equipmentName,
-
         Long equipmentRecipeId,
         Long masterRecipeId,
-
         String recipeParameter,
         RuleName ruleName,
         AnomalyType anomalyType,
-
         LocalDateTime occurredTime,
         LocalDateTime windowStartTime,
         Integer sampleCount,

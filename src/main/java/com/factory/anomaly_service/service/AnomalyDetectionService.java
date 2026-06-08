@@ -1,9 +1,6 @@
 package com.factory.anomaly_service.service;
 
 import com.factory.anomaly_service.domain.entity.AnomalyLogEntity;
-import com.factory.anomaly_service.domain.entity.EquipmentEntity;
-import com.factory.anomaly_service.domain.entity.EquipmentRecipeDetailEntity;
-import com.factory.anomaly_service.domain.entity.EquipmentRecipeEntity;
 import com.factory.anomaly_service.engine.RuleEngine;
 import com.factory.anomaly_service.engine.RuleResult;
 import com.factory.anomaly_service.engine.RuleSensorSample;
@@ -11,9 +8,6 @@ import com.factory.anomaly_service.domain.type.LogType;
 import com.factory.anomaly_service.infrastructure.redis.SensorRedisRepository;
 import com.factory.anomaly_service.infrastructure.redis.SensorSample;
 import com.factory.anomaly_service.repository.AnomalyLogRepository;
-import com.factory.anomaly_service.repository.EquipmentRecipeDetailRepository;
-import com.factory.anomaly_service.repository.EquipmentRecipeRepository;
-import com.factory.anomaly_service.repository.EquipmentRepository;
 import com.factory.anomaly_service.event.AnomalyDetectedEvent;
 import com.factory.anomaly_service.event.AnomalyDetectedEventPublisher;
 import org.springframework.transaction.support.TransactionSynchronization;

@@ -2,11 +2,9 @@ package com.factory.anomaly_service.service;
 
 import com.factory.anomaly_service.domain.dto.response.AnomalyLogDetailResponse;
 import com.factory.anomaly_service.domain.dto.response.AnomalyLogResponse;
-import com.factory.anomaly_service.domain.entity.EquipmentRecipeDetailEntity;
 import com.factory.anomaly_service.exception.AnomalyErrorCode;
 import com.factory.anomaly_service.exception.AnomalyException;
 import com.factory.anomaly_service.repository.AnomalyLogRepository;
-import com.factory.anomaly_service.repository.EquipmentRecipeDetailRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
