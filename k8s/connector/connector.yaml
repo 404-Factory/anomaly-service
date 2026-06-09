@@ -13,6 +13,7 @@ spec:
     database.port: "3306"
     database.user: ${env:DEBEZIUM_USERNAME}
     database.password: ${env:DEBEZIUM_PASSWORD}
+    database.ssl.mode: "trust"
     database.server.id: "1003"
     topic.prefix: anomaly
 

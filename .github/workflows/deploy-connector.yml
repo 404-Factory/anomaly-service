@@ -5,15 +5,13 @@ on:
   push:
     branches: [main, feat/ci]
     paths:
-      - 'k8s/connector.yaml'
+      - 'k8s/connector/connector.yaml'
+      - '.github/workflows/deploy-connector.yml'
 
 jobs:
   deploy-connector:
-    uses: 404-Factory/.github/.github/workflows/reusable-deploy-connector.yml@main
+    uses: 404-Factory/.github/.github/workflows/reusable-deploy-connector.yml@dev
     with:
-      service-name: "anomaly"
-      db-name: "anomaly_db"
-      server-id: "1003"
       eks-cluster-name: ${{ vars.EKS_CLUSTER_NAME }}
     secrets:
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
