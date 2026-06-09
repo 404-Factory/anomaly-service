@@ -6,6 +6,7 @@ import com.factory.common.kafka.support.EventHandler;
 import com.factory.anomaly.event.payload.EquipmentRecipeDetailPayload;
 import com.factory.anomaly.infrastructure.entity.EquipmentRecipe;
 import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetail;
+import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetailId;
 import com.factory.anomaly.infrastructure.repository.EquipmentRecipeDetailRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentRecipeRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,16 +39,16 @@ public class EquipmentRecipeDetailUpdatedHandler implements EventHandler<Equipme
                 ? equipmentRecipeRepository.findById(payload.getEquipmentRecipeId()).orElse(null)
                 : null;
 
+        EquipmentRecipeDetailId detailId = new EquipmentRecipeDetailId(payload.getEquipmentRecipeId(), payload.getRecipeParameter());
 
         EquipmentRecipeDetail detail = equipmentRecipeDetailRepository
-                .findByEquipmentRecipe_EquipmentRecipeIdAndRecipeParameter(payload.getEquipmentRecipeId(), payload.getRecipeParameter())
+                .findById(detailId)
                 .orElseGet(() -> EquipmentRecipeDetail.builder()
+                        .id(detailId)
                         .equipmentRecipe(equipmentRecipe)
-                        .recipeParameter(payload.getRecipeParameter())
                         .build());
 
-        detail.setMinValue(payload.getMinValue());
-        detail.setMaxValue(payload.getMaxValue());
+        detail.update(payload.getMinValue(), payload.getMaxValue());
         equipmentRecipeDetailRepository.save(detail);
     }
 }

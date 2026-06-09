@@ -30,8 +30,8 @@ public class ProcessUpdatedHandler implements EventHandler<ProcessPayload> {
         ProcessPayload payload = event.getPayload();
         log.info("[CQRS] Processing ProcessUpdated event. id={}, name={}", payload.getProcessId(), payload.getName());
         Process process = Process.builder()
-                .processId(payload.getProcessId())
-                .processName(payload.getName())
+                .id(payload.getProcessId())
+                .name(payload.getName())
                 .build();
         processRepository.save(process);
     }

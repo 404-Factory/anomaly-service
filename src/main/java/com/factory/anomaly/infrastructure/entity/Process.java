@@ -17,13 +17,16 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Getter
-@Setter
 public class Process {
 
     @Id
-    @Column(name = "process_id")
-    private Long processId;
+    @Column(name = "id")
+    private Long id;
 
     @Column(name = "name", nullable = false, length = 100)
-    private String processName;
+    private String name;
+
+    public void update(String name) {
+        this.name = name;
+    }
 }

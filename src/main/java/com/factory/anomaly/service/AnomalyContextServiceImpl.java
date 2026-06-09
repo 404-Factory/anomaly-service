@@ -5,6 +5,7 @@ import com.factory.anomaly.exception.AnomalyErrorCode;
 import com.factory.anomaly.exception.AnomalyException;
 import com.factory.anomaly.infrastructure.entity.AnomalyLog;
 import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetail;
+import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetailId;
 import com.factory.anomaly.infrastructure.enums.LogType;
 import com.factory.anomaly.infrastructure.enums.RuleName;
 import com.factory.anomaly.infrastructure.enums.Severity;
@@ -65,10 +66,10 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
         }
 
         return equipmentRecipeDetailRepository
-                .findByEquipmentRecipe_EquipmentRecipeIdAndRecipeParameter(
-                        anomalyLog.getEquipmentRecipe().getEquipmentRecipeId(),
+                .findById(new EquipmentRecipeDetailId(
+                        anomalyLog.getEquipmentRecipe().getId(),
                         anomalyLog.getRecipeParameter()
-                )
+                ))
                 .orElse(null);
     }
 
@@ -111,10 +112,10 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
         var process = equipment != null ? equipment.getProcess() : null;
 
         return new AnomalyContextResponse.EquipmentInfo(
-                equipment != null ? equipment.getEquipmentId() : null,
-                equipment != null ? equipment.getEquipmentName() : null,
-                process != null ? process.getProcessId() : null,
-                process != null ? process.getProcessName() : null
+                equipment != null ? equipment.getId() : null,
+                equipment != null ? equipment.getName() : null,
+                process != null ? process.getId() : null,
+                process != null ? process.getName() : null
         );
     }
 
@@ -125,12 +126,12 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
         var equipmentRecipe = anomalyLog.getEquipmentRecipe();
         var masterRecipe = equipmentRecipe != null ? equipmentRecipe.getMasterRecipe() : null;
 
-        Double recipeMin = recipeDetail != null ? recipeDetail.getMinValue() : null;
-        Double recipeMax = recipeDetail != null ? recipeDetail.getMaxValue() : null;
+        Double recipeMin = recipeDetail != null ? recipeDetail.getMin() : null;
+        Double recipeMax = recipeDetail != null ? recipeDetail.getMax() : null;
 
         return new AnomalyContextResponse.RecipeInfo(
-                equipmentRecipe != null ? equipmentRecipe.getEquipmentRecipeId() : null,
-                masterRecipe != null ? masterRecipe.getMasterRecipeId() : null,
+                equipmentRecipe != null ? equipmentRecipe.getId() : null,
+                masterRecipe != null ? masterRecipe.getId() : null,
                 equipmentRecipe != null && equipmentRecipe.getVersion() != null
                         ? String.valueOf(equipmentRecipe.getVersion())
                         : null,
@@ -196,7 +197,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
             List<AnomalyLog> relatedLogs
     ) {
         var equipment = anomalyLog.getEquipment();
-        String equipmentName = equipment != null ? equipment.getEquipmentName() : "알 수 없는 설비";
+        String equipmentName = equipment != null ? equipment.getName() : "알 수 없는 설비";
 
         if (anomalyLog.getLogType() == LogType.COMPOSITE) {
             return String.format(

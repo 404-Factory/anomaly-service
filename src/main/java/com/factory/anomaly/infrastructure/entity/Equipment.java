@@ -12,7 +12,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "equipments")
@@ -20,17 +19,25 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Getter
-@Setter
 public class Equipment {
 
     @Id
-    @Column(name = "equipment_id")
-    private Long equipmentId;
+    @Column(name = "id")
+    private Long id;
 
     @Column(name = "name", nullable = false, length = 100)
-    private String equipmentName;
+    private String name;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "process_id")
     private Process process;
+
+    @Column(name = "status")
+    private String status;
+
+    public void update(String name, Process process, String status) {
+        this.name = name;
+        this.process = process;
+        this.status = status;
+    }
 }

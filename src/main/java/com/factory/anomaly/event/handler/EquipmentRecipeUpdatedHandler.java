@@ -47,14 +47,14 @@ public class EquipmentRecipeUpdatedHandler implements EventHandler<EquipmentReci
             masterRecipe = masterRecipeRepository.findById(payload.getMasterRecipeId())
                     .orElseGet(() -> {
                         MasterRecipe newMaster = MasterRecipe.builder()
-                                .masterRecipeId(payload.getMasterRecipeId())
+                                .id(payload.getMasterRecipeId())
                                 .build();
                         return masterRecipeRepository.save(newMaster);
                     });
         }
 
         EquipmentRecipe equipmentRecipe = EquipmentRecipe.builder()
-                .equipmentRecipeId(payload.getEquipmentRecipeId())
+                .id(payload.getEquipmentRecipeId())
                 .equipment(equipment)
                 .masterRecipe(masterRecipe)
                 .version(payload.getVersion())
