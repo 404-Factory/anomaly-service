@@ -16,8 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -92,7 +90,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
 
         return anomalyLogRepository.findAllById(relatedIds)
                 .stream()
-                .sorted(Comparator.comparing(AnomalyLog::getFirstDetectedAt))
+                .sorted(Comparator.comparing(AnomalyLog::getLastDetectedAt))
                 .toList();
     }
 
@@ -102,7 +100,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
                 anomalyLog.getLogType(),
                 anomalyLog.getSeverity(),
                 toStatusLabel(anomalyLog.getSeverity()),
-                toLocalDateTime(anomalyLog.getFirstDetectedAt()),
+                anomalyLog.getLastDetectedAt(),
                 anomalyLog.getRuleName(),
                 anomalyLog.getAnomalyType(),
                 anomalyLog.getRelatedLogIds()
@@ -146,7 +144,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
     }
 
     private AnomalyContextResponse.RuleContext toRuleContext(AnomalyLog anomalyLog) {
-        LocalDateTime windowEndTime = toLocalDateTime(anomalyLog.getFirstDetectedAt());
+        Instant windowEndTime = anomalyLog.getLastDetectedAt();
 
         return new AnomalyContextResponse.RuleContext(
                 anomalyLog.getRuleName(),
@@ -156,7 +154,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
                 anomalyLog.getDeviation(),
                 anomalyLog.getDeviationRate(),
                 anomalyLog.getDetectionReason(),
-                toLocalDateTime(anomalyLog.getLastDetectedAt()),
+                anomalyLog.getFirstDetectedAt(),
                 windowEndTime,
                 expectedSampleCount(anomalyLog),
                 anomalyLog.getSampleCount()
@@ -172,7 +170,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
                 toStatusLabel(relatedLog.getSeverity()),
                 relatedLog.getRuleName(),
                 relatedLog.getAnomalyType(),
-                toLocalDateTime(relatedLog.getFirstDetectedAt()),
+                relatedLog.getLastDetectedAt(),
                 relatedLog.getDetectionReason()
         );
     }
@@ -215,7 +213,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
                     "%s 설비의 %s 값이 %s에 기준값 %.3f 대비 %.3f으로 측정되어 %s 이상으로 분류되었습니다.",
                     equipmentName,
                     anomalyLog.getRecipeParameter(),
-                    toLocalDateTime(anomalyLog.getFirstDetectedAt()),
+                    anomalyLog.getLastDetectedAt(),
                     anomalyLog.getReferenceValue(),
                     anomalyLog.getMeasuredValue(),
                     anomalyLog.getSeverity()
@@ -296,9 +294,5 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
             case WARNING -> "경고";
             case CAUTION -> "주의";
         };
-    }
-
-    private LocalDateTime toLocalDateTime(Instant instant) {
-        return instant != null ? LocalDateTime.ofInstant(instant, ZoneOffset.UTC) : null;
     }
 }

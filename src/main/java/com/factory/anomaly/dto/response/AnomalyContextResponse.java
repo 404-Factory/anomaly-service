@@ -5,7 +5,7 @@ import com.factory.anomaly.infrastructure.enums.LogType;
 import com.factory.anomaly.infrastructure.enums.RuleName;
 import com.factory.anomaly.infrastructure.enums.Severity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public record AnomalyContextResponse(
@@ -23,7 +23,7 @@ public record AnomalyContextResponse(
             LogType logType,
             Severity severity,
             String displaySeverity,
-            LocalDateTime occurredTime,
+            Instant occurredTime,
             RuleName ruleName,
             AnomalyType anomalyType,
             String relatedLogIds
@@ -58,8 +58,8 @@ public record AnomalyContextResponse(
             Double deviation,
             Double deviationRate,
             String ruleReason,
-            LocalDateTime windowStartTime,
-            LocalDateTime windowEndTime,
+            Instant windowStartTime,
+            Instant windowEndTime,
             Integer expectedSampleCount,
             Integer actualSampleCount
     ) {
@@ -73,7 +73,7 @@ public record AnomalyContextResponse(
             String displaySeverity,
             RuleName ruleName,
             AnomalyType anomalyType,
-            LocalDateTime occurredTime,
+            Instant occurredTime,
             String detectionReason
     ) {
     }
@@ -89,7 +89,7 @@ public record AnomalyContextResponse(
     }
 
     public record SensorPoint(
-            LocalDateTime timestamp,
+            Instant timestamp,
             Double value
     ) {
     }

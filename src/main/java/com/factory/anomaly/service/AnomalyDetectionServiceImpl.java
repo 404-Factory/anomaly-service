@@ -197,11 +197,11 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 .equipmentRecipe(equipmentRecipe)
                 .recipeParameter(sensorType)
                 .severity(ruleResult.severity())
-                .firstDetectedAt(detectedInstant)
+                .lastDetectedAt(detectedInstant)
                 .ruleName(ruleResult.ruleName())
                 .anomalyType(ruleResult.anomalyType())
                 .logType(LogType.SENSOR)
-                .lastDetectedAt(detectedInstant.minusSeconds(FIVE_MINUTES * 60L))
+                .firstDetectedAt(detectedInstant.minusSeconds(FIVE_MINUTES * 60L))
                 .sampleCount(fiveMinuteSamples.size())
                 .detectionReason(ruleResult.reason())
                 .relatedLogIds(null)
@@ -228,7 +228,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 .equipmentName(equipment.getName())
                 .recipeParameter(sensorType)
                 .severity(savedAnomalyLog.getSeverity().name())
-                .occurredTime(savedAnomalyLog.getFirstDetectedAt())
+                .occurredTime(savedAnomalyLog.getLastDetectedAt())
                 .causeRule(savedAnomalyLog.getRuleName().name())
                 .build();
 

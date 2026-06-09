@@ -7,7 +7,7 @@ import com.factory.anomaly.infrastructure.enums.LogType;
 import com.factory.anomaly.infrastructure.enums.RuleName;
 import com.factory.anomaly.infrastructure.enums.Severity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record AnomalyLogDetailResponse(
         Long logId,
@@ -23,8 +23,8 @@ public record AnomalyLogDetailResponse(
         String recipeParameter,
         RuleName ruleName,
         AnomalyType anomalyType,
-        LocalDateTime occurredTime,
-        LocalDateTime windowStartTime,
+        Instant occurredTime,
+        Instant windowStartTime,
         Integer sampleCount,
         String detectionReason,
 
@@ -69,8 +69,8 @@ public record AnomalyLogDetailResponse(
                 anomalyLog.getRuleName(),
                 anomalyLog.getAnomalyType(),
 
-                anomalyLog.getFirstDetectedAt() != null ? java.time.LocalDateTime.ofInstant(anomalyLog.getFirstDetectedAt(), java.time.ZoneOffset.UTC) : null,
-                anomalyLog.getLastDetectedAt() != null ? java.time.LocalDateTime.ofInstant(anomalyLog.getLastDetectedAt(), java.time.ZoneOffset.UTC) : null,
+                anomalyLog.getLastDetectedAt(),
+                anomalyLog.getFirstDetectedAt(),
                 anomalyLog.getSampleCount(),
                 anomalyLog.getDetectionReason(),
 

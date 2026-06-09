@@ -5,7 +5,7 @@ import com.factory.anomaly.infrastructure.enums.AnomalyType;
 import com.factory.anomaly.infrastructure.enums.RuleName;
 import com.factory.anomaly.infrastructure.enums.Severity;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record AnomalyDetectionResponse(
         Long logId,
@@ -15,7 +15,7 @@ public record AnomalyDetectionResponse(
         Severity severity,
         RuleName ruleName,
         AnomalyType anomalyType,
-        LocalDateTime occurredTime,
+        Instant occurredTime,
         String detectionReason
 ) {
     public static AnomalyDetectionResponse from(AnomalyLog entity) {
@@ -27,7 +27,7 @@ public record AnomalyDetectionResponse(
                 entity.getSeverity(),
                 entity.getRuleName(),
                 entity.getAnomalyType(),
-                entity.getFirstDetectedAt() != null ? java.time.LocalDateTime.ofInstant(entity.getFirstDetectedAt(), java.time.ZoneOffset.UTC) : null,
+                entity.getLastDetectedAt(),
                 entity.getDetectionReason()
         );
     }
