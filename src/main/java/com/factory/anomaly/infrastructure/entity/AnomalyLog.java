@@ -91,4 +91,7 @@ public class AnomalyLog {
 
     @Column(name = "last_detected_at")
     private Instant lastDetectedAt;
+
+    @Column(name = "ai_analysis", columnDefinition = "TEXT")
+    private String aiAnalysis;
 }
