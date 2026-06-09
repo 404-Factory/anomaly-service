@@ -30,6 +30,22 @@ public class SensorRedisRepository {
     @Value("${app.time-zone:Asia/Seoul}")
     private String timeZone;
 
+    public List<String> findKeys(String equipmentCode, String sensorType) {
+        String keyPattern = sensorRedisKeyResolver.buildSensorKeyPattern(equipmentCode, sensorType);
+        return scanKeys(keyPattern);
+    }
+
+    public List<SensorSample> findSamplesByKey(
+            String key,
+            LocalDateTime occurredTime,
+            int beforeMinutes,
+            int afterMinutes
+    ) {
+        double startScore = toEpochSecond(occurredTime.minusMinutes(beforeMinutes));
+        double endScore = toEpochSecond(occurredTime.plusMinutes(afterMinutes));
+        return findSamplesByKeyAndScoreRange(key, startScore, endScore);
+    }
+
     public List<SensorSample> findSamples(
             String equipmentCode,
             String sensorType,
@@ -37,8 +53,7 @@ public class SensorRedisRepository {
             int beforeMinutes,
             int afterMinutes
     ) {
-        String keyPattern = sensorRedisKeyResolver.buildSensorKeyPattern(equipmentCode, sensorType);
-        List<String> keys = scanKeys(keyPattern);
+        List<String> keys = findKeys(equipmentCode, sensorType);
 
         if (keys.isEmpty()) {
             return List.of();
