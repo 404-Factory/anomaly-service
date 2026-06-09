@@ -17,7 +17,6 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Getter
-@Setter
 public class Process {
 
     @Id
@@ -26,4 +25,8 @@ public class Process {
 
     @Column(name = "name", nullable = false, length = 100)
     private String name;
+
+    public void update(String name) {
+        this.name = name;
+    }
 }

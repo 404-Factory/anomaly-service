@@ -41,14 +41,14 @@ public class EquipmentRecipeDetailUpdatedHandler implements EventHandler<Equipme
 
         EquipmentRecipeDetailId detailId = new EquipmentRecipeDetailId(payload.getEquipmentRecipeId(), payload.getRecipeParameter());
 
-        EquipmentRecipeDetail detail = equipmentRecipeDetailRepository.findById(detailId)
+        EquipmentRecipeDetail detail = equipmentRecipeDetailRepository
+                .findById(detailId)
                 .orElseGet(() -> EquipmentRecipeDetail.builder()
                         .id(detailId)
                         .equipmentRecipe(equipmentRecipe)
                         .build());
 
-        detail.setMin(payload.getMinValue());
-        detail.setMax(payload.getMaxValue());
+        detail.update(payload.getMinValue(), payload.getMaxValue());
         equipmentRecipeDetailRepository.save(detail);
     }
 }

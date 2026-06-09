@@ -6,13 +6,14 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "equipment_recipes")
@@ -20,7 +21,6 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Getter
-@Setter
 public class EquipmentRecipe {
 
     @Id
@@ -37,4 +37,7 @@ public class EquipmentRecipe {
 
     @Column(name = "version")
     private Double version;
+
+    @OneToMany(mappedBy = "equipmentRecipe", fetch = FetchType.LAZY)
+    private List<EquipmentRecipeDetail> details;
 }

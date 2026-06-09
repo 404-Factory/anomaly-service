@@ -13,7 +13,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "equipment_recipe_details")
@@ -21,7 +20,6 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Getter
-@Setter
 public class EquipmentRecipeDetail {
 
     @EmbeddedId
@@ -37,4 +35,9 @@ public class EquipmentRecipeDetail {
 
     @Column(name = "max")
     private Double max;
+
+    public void update(Double min, Double max) {
+        this.min = min;
+        this.max = max;
+    }
 }
