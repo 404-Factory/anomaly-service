@@ -24,13 +24,16 @@ import lombok.Setter;
 public class Equipment {
 
     @Id
-    @Column(name = "equipment_id")
-    private Long equipmentId;
+    @Column(name = "id")
+    private Long id;
 
     @Column(name = "name", nullable = false, length = 100)
-    private String equipmentName;
+    private String name;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "process_id")
     private Process process;
+
+    @Column(name = "status")
+    private String status;
 }

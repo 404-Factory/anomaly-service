@@ -47,13 +47,13 @@ public record AnomalyLogResponse(
                 entity.getSeverity(),
                 toStatusLabel(entity.getSeverity()),
 
-                process != null ? process.getProcessId() : null,
-                process != null ? process.getProcessName() : null,
+                process != null ? process.getId() : null,
+                process != null ? process.getName() : null,
 
-                equipment != null ? equipment.getEquipmentId() : null,
-                equipment != null ? equipment.getEquipmentName() : null,
+                equipment != null ? equipment.getId() : null,
+                equipment != null ? equipment.getName() : null,
 
-                equipmentRecipe != null ? equipmentRecipe.getEquipmentRecipeId() : null,
+                equipmentRecipe != null ? equipmentRecipe.getId() : null,
 
                 entity.getRecipeParameter(),
                 entity.getRuleName(),

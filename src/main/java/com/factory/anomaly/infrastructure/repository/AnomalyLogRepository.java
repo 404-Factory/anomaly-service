@@ -15,13 +15,13 @@ public interface AnomalyLogRepository extends JpaRepository<AnomalyLog, Long> {
             FROM AnomalyLog a
             LEFT JOIN FETCH a.equipment e
             LEFT JOIN FETCH e.process p
-            WHERE (:processId IS NULL OR p.processId = :processId)
-              AND (:equipmentId IS NULL OR e.equipmentId = :equipmentId)
+            WHERE (:processId IS NULL OR p.id = :processId)
+              AND (:equipmentId IS NULL OR e.id = :equipmentId)
               AND (
                     :keyword IS NULL
                     OR LOWER(a.recipeParameter) LIKE LOWER(CONCAT('%', :keyword, '%'))
                     OR LOWER(a.detectionReason) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(e.equipmentName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                    OR LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
               )
             ORDER BY a.occurredTime DESC
             """)

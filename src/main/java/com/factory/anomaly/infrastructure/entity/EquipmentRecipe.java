@@ -24,8 +24,8 @@ import lombok.Setter;
 public class EquipmentRecipe {
 
     @Id
-    @Column(name = "equipment_recipe_id")
-    private Long equipmentRecipeId;
+    @Column(name = "id")
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "equipment_id")

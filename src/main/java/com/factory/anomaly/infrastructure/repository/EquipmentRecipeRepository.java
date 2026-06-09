@@ -7,5 +7,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface EquipmentRecipeRepository extends JpaRepository<EquipmentRecipe, Long> {
-    Optional<EquipmentRecipe> findTopByEquipment_EquipmentIdOrderByVersionDesc(Long equipmentId);
+    Optional<EquipmentRecipe> findTopByEquipment_IdOrderByVersionDesc(Long equipmentId);
 }

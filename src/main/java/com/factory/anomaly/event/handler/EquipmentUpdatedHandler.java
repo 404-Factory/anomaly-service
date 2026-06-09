@@ -40,8 +40,8 @@ public class EquipmentUpdatedHandler implements EventHandler<EquipmentPayload> {
         }
 
         Equipment equipment = Equipment.builder()
-                .equipmentId(payload.getEquipmentId())
-                .equipmentName(payload.getName())
+                .id(payload.getEquipmentId())
+                .name(payload.getName())
                 .process(process)
                 .build();
         equipmentRepository.save(equipment);

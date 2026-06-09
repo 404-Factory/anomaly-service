@@ -9,6 +9,7 @@ import com.factory.anomaly.infrastructure.entity.AnomalyLog;
 import com.factory.anomaly.infrastructure.entity.Equipment;
 import com.factory.anomaly.infrastructure.entity.EquipmentRecipe;
 import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetail;
+import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetailId;
 import com.factory.anomaly.infrastructure.enums.LogType;
 import com.factory.anomaly.infrastructure.redis.SensorRedisRepository;
 import com.factory.anomaly.infrastructure.redis.SensorSample;
@@ -110,7 +111,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         List<RuleSensorSample> fiveMinuteSamples = toRuleSamples(fiveMinuteRedisSamples);
         List<RuleSensorSample> oneMinuteSamples = toRuleSamples(oneMinuteRedisSamples);
 
-        Optional<Equipment> equipmentOptional = equipmentRepository.findByEquipmentName(equipmentCode);
+        Optional<Equipment> equipmentOptional = equipmentRepository.findByName(equipmentCode);
 
         if (equipmentOptional.isEmpty()) {
             log.warn(
@@ -123,12 +124,12 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         Equipment equipment = equipmentOptional.get();
 
         Optional<EquipmentRecipe> equipmentRecipeOptional = equipmentRecipeRepository
-                .findTopByEquipment_EquipmentIdOrderByVersionDesc(equipment.getEquipmentId());
+                .findTopByEquipment_IdOrderByVersionDesc(equipment.getId());
 
         if (equipmentRecipeOptional.isEmpty()) {
             log.warn(
                     "Skip anomaly detection. reason=EQUIPMENT_RECIPE_NOT_FOUND, equipmentId={}, equipmentCode={}",
-                    equipment.getEquipmentId(),
+                    equipment.getId(),
                     equipmentCode
             );
             return Optional.empty();
@@ -137,15 +138,12 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         EquipmentRecipe equipmentRecipe = equipmentRecipeOptional.get();
 
         Optional<EquipmentRecipeDetail> recipeDetailOptional = equipmentRecipeDetailRepository
-                .findByEquipmentRecipe_EquipmentRecipeIdAndRecipeParameter(
-                        equipmentRecipe.getEquipmentRecipeId(),
-                        sensorType
-                );
+                .findById(new EquipmentRecipeDetailId(equipmentRecipe.getId(), sensorType));
 
         if (recipeDetailOptional.isEmpty()) {
             log.warn(
                     "Skip anomaly detection. reason=RECIPE_DETAIL_NOT_FOUND, equipmentRecipeId={}, sensorType={}",
-                    equipmentRecipe.getEquipmentRecipeId(),
+                    equipmentRecipe.getId(),
                     sensorType
             );
             return Optional.empty();
@@ -155,17 +153,17 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
         log.info(
                 "Recipe threshold loaded. equipmentRecipeId={}, sensorType={}, minValue={}, maxValue={}",
-                equipmentRecipe.getEquipmentRecipeId(),
+                equipmentRecipe.getId(),
                 sensorType,
-                recipeDetail.getMinValue(),
-                recipeDetail.getMaxValue()
+                recipeDetail.getMin(),
+                recipeDetail.getMax()
         );
 
         RuleResult ruleResult = ruleEngine.evaluate(
                 fiveMinuteSamples,
                 oneMinuteSamples,
-                recipeDetail.getMinValue(),
-                recipeDetail.getMaxValue()
+                recipeDetail.getMin(),
+                recipeDetail.getMax()
         );
 
         if (!ruleResult.detected()) {
@@ -211,16 +209,16 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         log.info(
                 "Anomaly log saved. logId={}, equipmentId={}, equipmentRecipeId={}, sensorType={}, severity={}, ruleName={}",
                 savedAnomalyLog.getLogId(),
-                equipment.getEquipmentId(),
-                equipmentRecipe.getEquipmentRecipeId(),
+                equipment.getId(),
+                equipmentRecipe.getId(),
                 sensorType,
                 savedAnomalyLog.getSeverity(),
                 savedAnomalyLog.getRuleName()
         );
 
         AnomalyCreatedPayload payload = AnomalyCreatedPayload.builder()
-                .equipmentId(equipment.getEquipmentId())
-                .equipmentName(equipment.getEquipmentName())
+                .equipmentId(equipment.getId())
+                .equipmentName(equipment.getName())
                 .recipeParameter(sensorType)
                 .severity(savedAnomalyLog.getSeverity().name())
                 .occurredTime(savedAnomalyLog.getOccurredTime().atZone(ZoneId.systemDefault()).toInstant())

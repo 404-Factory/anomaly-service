@@ -5,6 +5,7 @@ import com.factory.anomaly.dto.response.AnomalyLogResponse;
 import com.factory.anomaly.exception.AnomalyErrorCode;
 import com.factory.anomaly.exception.AnomalyException;
 import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetail;
+import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetailId;
 import com.factory.anomaly.infrastructure.repository.AnomalyLogRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentRecipeDetailRepository;
 import lombok.RequiredArgsConstructor;
@@ -44,10 +45,10 @@ public class AnomalyServiceImpl implements AnomalyService {
 
         if (anomalyLog.getEquipmentRecipe() != null && anomalyLog.getRecipeParameter() != null) {
             recipeDetail = equipmentRecipeDetailRepository
-                    .findByEquipmentRecipe_EquipmentRecipeIdAndRecipeParameter(
-                            anomalyLog.getEquipmentRecipe().getEquipmentRecipeId(),
+                    .findById(new EquipmentRecipeDetailId(
+                            anomalyLog.getEquipmentRecipe().getId(),
                             anomalyLog.getRecipeParameter()
-                    )
+                    ))
                     .orElse(null);
         }
 

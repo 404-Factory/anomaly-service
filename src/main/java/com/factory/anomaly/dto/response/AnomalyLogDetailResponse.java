@@ -56,14 +56,14 @@ public record AnomalyLogDetailResponse(
                 anomalyLog.getSeverity(),
                 toStatusLabel(anomalyLog.getSeverity()),
 
-                process != null ? process.getProcessId() : null,
-                process != null ? process.getProcessName() : null,
+                process != null ? process.getId() : null,
+                process != null ? process.getName() : null,
 
-                equipment != null ? equipment.getEquipmentId() : null,
-                equipment != null ? equipment.getEquipmentName() : null,
+                equipment != null ? equipment.getId() : null,
+                equipment != null ? equipment.getName() : null,
 
-                equipmentRecipe != null ? equipmentRecipe.getEquipmentRecipeId() : null,
-                masterRecipe != null ? masterRecipe.getMasterRecipeId() : null,
+                equipmentRecipe != null ? equipmentRecipe.getId() : null,
+                masterRecipe != null ? masterRecipe.getId() : null,
 
                 anomalyLog.getRecipeParameter(),
                 anomalyLog.getRuleName(),
@@ -76,8 +76,8 @@ public record AnomalyLogDetailResponse(
 
                 anomalyLog.getRelatedLogIds(),
 
-                recipeDetail != null ? recipeDetail.getMinValue() : null,
-                recipeDetail != null ? recipeDetail.getMaxValue() : null,
+                recipeDetail != null ? recipeDetail.getMin() : null,
+                recipeDetail != null ? recipeDetail.getMax() : null,
 
                 anomalyLog.getMeasuredValue(),
                 anomalyLog.getReferenceValue(),

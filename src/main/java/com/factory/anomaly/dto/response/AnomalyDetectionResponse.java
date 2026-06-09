@@ -21,8 +21,8 @@ public record AnomalyDetectionResponse(
     public static AnomalyDetectionResponse from(AnomalyLog entity) {
         return new AnomalyDetectionResponse(
                 entity.getLogId(),
-                entity.getEquipment() != null ? entity.getEquipment().getEquipmentId() : null,
-                entity.getEquipmentRecipe() != null ? entity.getEquipmentRecipe().getEquipmentRecipeId() : null,
+                entity.getEquipment() != null ? entity.getEquipment().getId() : null,
+                entity.getEquipmentRecipe() != null ? entity.getEquipmentRecipe().getId() : null,
                 entity.getRecipeParameter(),
                 entity.getSeverity(),
                 entity.getRuleName(),
