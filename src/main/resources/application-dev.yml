@@ -11,7 +11,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     properties:
       hibernate:
         format_sql: ${JPA_FORMAT_SQL:true}
@@ -30,11 +30,19 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:anomaly-consumer-group}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 app:
-  time-zone: Asia/Seoul
+  time-zone: UTC
   event:
     publish-enabled: ${EVENT_PUBLISH_ENABLED:false}
+  kafka:
+    consumer:
+      sensor-topic: ${KAFKA_TOPIC_SENSOR_DATA:fab-semiconductor-001}
 
 kafka:
   topic:
