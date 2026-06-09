@@ -18,6 +18,9 @@ import com.factory.anomaly.infrastructure.repository.AnomalyLogRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentRecipeDetailRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentRecipeRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.factory.anomaly.dto.SensorSnapshotDto;
+import com.factory.anomaly.infrastructure.enums.RuleName;
 import com.factory.common.event.domain.EventEnvelope;
 import com.factory.common.event.support.EventEnvelopeFactory;
 import com.factory.common.kafka.publisher.EventPublisher;
@@ -31,6 +34,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -51,6 +55,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
     private final EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
     private final EventPublisher eventPublisher;
     private final EventEnvelopeFactory eventEnvelopeFactory;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.event.publish-enabled:false}")
     private boolean eventPublishEnabled;
@@ -192,6 +197,57 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
         Instant detectedInstant = detectedAt.toInstant(ZoneOffset.UTC);
 
+        Instant firstDetectedAt;
+        int sampleCount;
+        if (ruleResult.ruleName() == RuleName.NELSON_RULE_3) {
+            firstDetectedAt = detectedInstant.minusSeconds(60L);
+            sampleCount = oneMinuteSamples.size();
+        } else {
+            firstDetectedAt = detectedInstant.minusSeconds(300L);
+            sampleCount = fiveMinuteSamples.size();
+        }
+
+        List<SensorSnapshotDto> snapshots = new ArrayList<>();
+        List<EquipmentRecipeDetail> recipeDetails = equipmentRecipeDetailRepository.findByEquipmentRecipe_Id(equipmentRecipe.getId());
+        for (EquipmentRecipeDetail detail : recipeDetails) {
+            String param = detail.getId().getParam();
+            List<String> keys = sensorRedisRepository.findKeys(equipmentCode, param);
+            if (keys.isEmpty()) {
+                snapshots.add(new SensorSnapshotDto(
+                        param,
+                        param,
+                        null,
+                        detail.getMin(),
+                        detail.getMax(),
+                        List.of()
+                ));
+            } else {
+                for (String key : keys) {
+                    String[] parts = key.split(":");
+                    String sensorId = parts.length > 2 ? parts[2] : param;
+                    List<SensorSample> samples = sensorRedisRepository.findSamplesByKey(key, detectedAt, FIVE_MINUTES, 0);
+                    List<SensorSnapshotDto.Point> points = samples.stream()
+                            .map(s -> new SensorSnapshotDto.Point(s.timestamp().toInstant(), s.value()))
+                            .toList();
+                    snapshots.add(new SensorSnapshotDto(
+                            sensorId,
+                            param,
+                            null,
+                            detail.getMin(),
+                            detail.getMax(),
+                            points
+                    ));
+                }
+            }
+        }
+
+        String snapshotDataJson = null;
+        try {
+            snapshotDataJson = objectMapper.writeValueAsString(snapshots);
+        } catch (Exception e) {
+            log.error("Failed to serialize sensor snapshot data", e);
+        }
+
         AnomalyLog anomalyLog = AnomalyLog.builder()
                 .equipment(equipment)
                 .equipmentRecipe(equipmentRecipe)
@@ -201,14 +257,15 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 .ruleName(ruleResult.ruleName())
                 .anomalyType(ruleResult.anomalyType())
                 .logType(LogType.SENSOR)
-                .firstDetectedAt(detectedInstant.minusSeconds(FIVE_MINUTES * 60L))
-                .sampleCount(fiveMinuteSamples.size())
+                .firstDetectedAt(firstDetectedAt)
+                .sampleCount(sampleCount)
                 .detectionReason(ruleResult.reason())
                 .relatedLogIds(null)
                 .measuredValue(ruleResult.measuredValue())
                 .referenceValue(ruleResult.referenceValue())
                 .deviation(ruleResult.deviation())
                 .deviationRate(ruleResult.deviationRate())
+                .snapshotData(snapshotDataJson)
                 .build();
 
         AnomalyLog savedAnomalyLog = anomalyLogRepository.save(anomalyLog);
