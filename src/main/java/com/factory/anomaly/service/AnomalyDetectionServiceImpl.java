@@ -1,6 +1,7 @@
 package com.factory.anomaly.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import com.factory.anomaly.infrastructure.enums.RuleName;
 import com.factory.anomaly.engine.RuleEngine;
 import com.factory.anomaly.engine.RuleResult;
 import com.factory.anomaly.engine.RuleSensorSample;
@@ -189,6 +190,13 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 ruleResult.severity()
         );
 
+        DetectionWindow detectionWindow = resolveDetectionWindow(
+                ruleResult.ruleName(),
+                detectedAt,
+                oneMinuteSamples,
+                fiveMinuteSamples
+        );
+
         AnomalyLog anomalyLog = AnomalyLog.builder()
                 .equipment(equipment)
                 .equipmentRecipe(equipmentRecipe)
@@ -198,8 +206,8 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 .ruleName(ruleResult.ruleName())
                 .anomalyType(ruleResult.anomalyType())
                 .logType(LogType.SENSOR)
-                .windowStartTime(detectedAt.minusMinutes(FIVE_MINUTES))
-                .sampleCount(fiveMinuteSamples.size())
+                .windowStartTime(detectionWindow.windowStartTime())
+                .sampleCount(detectionWindow.sampleCount())
                 .detectionReason(ruleResult.reason())
                 .relatedLogIds(null)
                 .measuredValue(ruleResult.measuredValue())
@@ -260,6 +268,31 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                     }
                 }
         );
+    }
+
+    private DetectionWindow resolveDetectionWindow(
+            RuleName ruleName,
+            LocalDateTime detectedAt,
+            List<RuleSensorSample> oneMinuteSamples,
+            List<RuleSensorSample> fiveMinuteSamples
+    ) {
+        if (ruleName == RuleName.NELSON_RULE_3) {
+            return new DetectionWindow(
+                    detectedAt.minusMinutes(ONE_MINUTE),
+                    oneMinuteSamples.size()
+            );
+        }
+
+        return new DetectionWindow(
+                detectedAt.minusMinutes(FIVE_MINUTES),
+                fiveMinuteSamples.size()
+        );
+    }
+
+    private record DetectionWindow(
+            LocalDateTime windowStartTime,
+            int sampleCount
+    ) {
     }
 
     private List<RuleSensorSample> toRuleSamples(List<SensorSample> redisSamples) {

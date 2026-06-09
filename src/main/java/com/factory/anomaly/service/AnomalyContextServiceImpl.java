@@ -27,6 +27,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
 
     private static final int EXPECTED_SAMPLE_PER_MINUTE = 60;
     private static final int DEFAULT_CONTEXT_WINDOW_MINUTES = 5;
+    private static final int ONE_MINUTE_CONTEXT_WINDOW_MINUTES = 1;
 
     private final AnomalyLogRepository anomalyLogRepository;
     private final EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
@@ -258,6 +259,10 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
     private Integer expectedSampleCount(AnomalyLog anomalyLog) {
         if (anomalyLog.getLogType() == LogType.COMPOSITE) {
             return null;
+        }
+
+        if (anomalyLog.getRuleName() == RuleName.NELSON_RULE_3) {
+            return ONE_MINUTE_CONTEXT_WINDOW_MINUTES * EXPECTED_SAMPLE_PER_MINUTE;
         }
 
         return DEFAULT_CONTEXT_WINDOW_MINUTES * EXPECTED_SAMPLE_PER_MINUTE;
