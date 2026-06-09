@@ -24,7 +24,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "anomaly_log")
+@Table(name = "anomalies")
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
