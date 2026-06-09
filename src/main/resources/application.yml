@@ -43,3 +43,7 @@ management:
   endpoint:
     health:
       show-details: never
+
+app:
+  chatbot-service:
+    url: ${CHATBOT_SERVICE_URL:http://localhost:8085}

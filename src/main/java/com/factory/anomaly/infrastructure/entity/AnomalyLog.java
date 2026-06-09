@@ -94,4 +94,7 @@ public class AnomalyLog {
 
     @Column(name = "snapshot_data", columnDefinition = "TEXT")
     private String snapshotData;
+
+    @Column(name = "ai_analysis", columnDefinition = "TEXT")
+    private String aiAnalysis;
 }

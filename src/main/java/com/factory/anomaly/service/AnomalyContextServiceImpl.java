@@ -3,6 +3,7 @@ package com.factory.anomaly.service;
 import com.factory.anomaly.dto.response.AnomalyContextResponse;
 import com.factory.anomaly.exception.AnomalyErrorCode;
 import com.factory.anomaly.exception.AnomalyException;
+import com.factory.anomaly.infrastructure.client.ChatbotServiceClient;
 import com.factory.anomaly.infrastructure.entity.AnomalyLog;
 import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetail;
 import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetailId;
@@ -10,6 +11,7 @@ import com.factory.anomaly.infrastructure.enums.LogType;
 import com.factory.anomaly.infrastructure.enums.RuleName;
 import com.factory.anomaly.infrastructure.enums.Severity;
 import com.factory.anomaly.infrastructure.repository.AnomalyLogRepository;
+import com.factory.anomaly.infrastructure.repository.DefectRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentRecipeDetailRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.factory.anomaly.dto.SensorSnapshotDto;
@@ -19,9 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -35,11 +39,64 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
     private final AnomalyLogRepository anomalyLogRepository;
     private final EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
     private final ObjectMapper objectMapper;
+    private final DefectRepository defectRepository;
+    private final ChatbotServiceClient chatbotServiceClient;
 
     @Override
+    @Transactional
     public AnomalyContextResponse getAnomalyContext(Long anomalyId) {
         AnomalyLog anomalyLog = anomalyLogRepository.findById(anomalyId)
                 .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANOMALY_LOG_NOT_FOUND));
+
+        String currentAiAnalysis = anomalyLog.getAiAnalysis();
+        boolean isError = currentAiAnalysis != null && (currentAiAnalysis.startsWith("AI 분석 호출 실패") || currentAiAnalysis.startsWith("AI 분석 리포트 생성 중 예외"));
+        if (currentAiAnalysis == null || currentAiAnalysis.isBlank() || isError) {
+            System.out.println("[DEBUG] getAnomalyContext - aiAnalysis is empty or error. Generating analysis...");
+            try {
+                Long equipmentId = anomalyLog.getEquipment() != null ? anomalyLog.getEquipment().getId() : null;
+                Instant anomalyTime = anomalyLog.getLastDetectedAt();
+
+                List<ChatbotServiceClient.DefectDto> defectDtos = List.of();
+                if (equipmentId != null && anomalyTime != null) {
+                    Instant endTime = anomalyTime.plus(30, ChronoUnit.MINUTES);
+                    var defects = defectRepository.findCorrelatedDefects(equipmentId, anomalyTime, endTime);
+                    System.out.println("[DEBUG] getAnomalyContext - Found " + defects.size() + " correlated defects");
+                    defectDtos = defects.stream()
+                            .map(d -> ChatbotServiceClient.DefectDto.builder()
+                                    .lotId(d.getLotId())
+                                    .defectType(d.getDefectType())
+                                    .defectCode(d.getDefectCode())
+                                    .occurredTime(d.getOccurredTime())
+                                    .detectedTime(d.getDetectedTime())
+                                    .build())
+                            .collect(Collectors.toList());
+                }
+
+                ChatbotServiceClient.AnomalyAnalysisRequest analysisRequest = ChatbotServiceClient.AnomalyAnalysisRequest.builder()
+                        .equipmentName(anomalyLog.getEquipment() != null ? anomalyLog.getEquipment().getName() : "N/A")
+                        .recipeParameter(anomalyLog.getRecipeParameter())
+                        .ruleName(anomalyLog.getRuleName() != null ? anomalyLog.getRuleName().name() : "N/A")
+                        .anomalyType(anomalyLog.getAnomalyType() != null ? anomalyLog.getAnomalyType().name() : "N/A")
+                        .detectionReason(anomalyLog.getDetectionReason())
+                        .occurredTime(anomalyTime)
+                        .defects(defectDtos)
+                        .build();
+
+                String aiResult = chatbotServiceClient.getAnomalyAnalysis(analysisRequest);
+                anomalyLog.setAiAnalysis(aiResult);
+
+                boolean newResultIsError = aiResult != null && (aiResult.startsWith("AI 분석 호출 실패") || aiResult.startsWith("AI 분석 리포트 생성 중 예외"));
+                if (!newResultIsError) {
+                    anomalyLogRepository.save(anomalyLog);
+                    System.out.println("[DEBUG] getAnomalyContext - AI Analysis generated and saved successfully.");
+                } else {
+                    System.out.println("[WARN] getAnomalyContext - AI Analysis generation failed, not saving to DB: " + aiResult);
+                }
+            } catch (Exception e) {
+                System.err.println("[ERROR] getAnomalyContext - Failed during AI Anomaly Analysis generation: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
 
         EquipmentRecipeDetail recipeDetail = findRecipeDetail(anomalyLog);
         List<AnomalyLog> relatedLogs = findRelatedLogs(anomalyLog);
@@ -132,9 +189,11 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
                 anomalyLog.getLastDetectedAt(),
                 anomalyLog.getRuleName(),
                 anomalyLog.getAnomalyType(),
-                anomalyLog.getRelatedLogIds()
+                anomalyLog.getRelatedLogIds(),
+                anomalyLog.getAiAnalysis()
         );
     }
+
 
     private AnomalyContextResponse.EquipmentInfo toEquipmentInfo(AnomalyLog anomalyLog) {
         var equipment = anomalyLog.getEquipment();

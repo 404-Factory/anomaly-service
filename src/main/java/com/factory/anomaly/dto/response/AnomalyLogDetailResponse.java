@@ -36,7 +36,8 @@ public record AnomalyLogDetailResponse(
         Double measuredValue,
         Double referenceValue,
         Double deviation,
-        Double deviationRate
+        Double deviationRate,
+        String aiAnalysis
 ) {
 
     public static AnomalyLogDetailResponse of(
@@ -82,7 +83,8 @@ public record AnomalyLogDetailResponse(
                 anomalyLog.getMeasuredValue(),
                 anomalyLog.getReferenceValue(),
                 anomalyLog.getDeviation(),
-                anomalyLog.getDeviationRate()
+                anomalyLog.getDeviationRate(),
+                anomalyLog.getAiAnalysis()
         );
     }
 
