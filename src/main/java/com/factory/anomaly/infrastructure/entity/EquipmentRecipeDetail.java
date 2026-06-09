@@ -1,5 +1,6 @@
 package com.factory.anomaly.infrastructure.entity;
 
+import com.factory.common.kafka.consumer.CommonKafkaConsumer;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;

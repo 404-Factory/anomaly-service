@@ -15,6 +15,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -34,8 +35,7 @@ public class AnomalyLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "log_id")
-    private Long logId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "equipment_id")
@@ -85,9 +85,9 @@ public class AnomalyLog {
     @Column(name = "deviation_rate")
     private Double deviationRate;
 
-    @Column(name = "occurred_time")
-    private LocalDateTime occurredTime;
+    @Column(name = "first_detected_at")
+    private Instant firstDetectedAt;
 
-    @Column(name = "window_start_time")
-    private LocalDateTime windowStartTime;
+    @Column(name = "last_detected_at")
+    private Instant lastDetectedAt;
 }

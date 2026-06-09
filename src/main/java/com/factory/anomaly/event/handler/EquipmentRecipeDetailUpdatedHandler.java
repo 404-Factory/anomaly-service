@@ -2,6 +2,9 @@ package com.factory.anomaly.event.handler;
 
 import com.factory.common.event.domain.Event;
 import com.factory.common.inbox.jpa.aop.InboxProcessed;
+import com.factory.common.inbox.jpa.autoconfigure.InboxJpaAutoConfiguration;
+import com.factory.common.kafka.autoconfigure.SigmaKafkaAutoConfiguration;
+import com.factory.common.kafka.consumer.CommonKafkaConsumer;
 import com.factory.common.kafka.support.EventHandler;
 import com.factory.anomaly.event.payload.EquipmentRecipeDetailPayload;
 import com.factory.anomaly.infrastructure.entity.EquipmentRecipe;
