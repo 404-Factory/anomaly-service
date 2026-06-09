@@ -13,7 +13,10 @@ import com.factory.anomaly.infrastructure.enums.Severity;
 import com.factory.anomaly.infrastructure.repository.AnomalyLogRepository;
 import com.factory.anomaly.infrastructure.repository.DefectRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentRecipeDetailRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.factory.anomaly.dto.SensorSnapshotDto;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -34,6 +38,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
 
     private final AnomalyLogRepository anomalyLogRepository;
     private final EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
+    private final ObjectMapper objectMapper;
     private final DefectRepository defectRepository;
     private final ChatbotServiceClient chatbotServiceClient;
 
@@ -96,6 +101,30 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
         EquipmentRecipeDetail recipeDetail = findRecipeDetail(anomalyLog);
         List<AnomalyLog> relatedLogs = findRelatedLogs(anomalyLog);
 
+        List<AnomalyContextResponse.SensorSeries> sensorSeriesList = List.of();
+        if (anomalyLog.getSnapshotData() != null && !anomalyLog.getSnapshotData().isBlank()) {
+            try {
+                List<SensorSnapshotDto> dtos = objectMapper.readValue(
+                        anomalyLog.getSnapshotData(),
+                        objectMapper.getTypeFactory().constructCollectionType(List.class, SensorSnapshotDto.class)
+                );
+                sensorSeriesList = dtos.stream()
+                        .map(dto -> new AnomalyContextResponse.SensorSeries(
+                                dto.sensorId(),
+                                dto.sensorType(),
+                                dto.unit(),
+                                dto.recipeMin(),
+                                dto.recipeMax(),
+                                dto.values().stream()
+                                        .map(p -> new AnomalyContextResponse.SensorPoint(p.ts(), p.val()))
+                                        .toList()
+                        ))
+                        .toList();
+            } catch (Exception e) {
+                log.error("Failed to deserialize sensor snapshot data for anomalyId={}", anomalyId, e);
+            }
+        }
+
         return new AnomalyContextResponse(
                 toAnomalyInfo(anomalyLog),
                 toEquipmentInfo(anomalyLog),
@@ -104,7 +133,7 @@ public class AnomalyContextServiceImpl implements AnomalyContextService {
                 relatedLogs.stream()
                         .map(this::toRelatedLogInfo)
                         .toList(),
-                List.of(),
+                sensorSeriesList,
                 toAiInputSummary(anomalyLog, recipeDetail, relatedLogs)
         );
     }
