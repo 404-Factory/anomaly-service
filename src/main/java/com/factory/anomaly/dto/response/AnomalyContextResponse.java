@@ -26,9 +26,11 @@ public record AnomalyContextResponse(
             Instant occurredTime,
             RuleName ruleName,
             AnomalyType anomalyType,
-            String relatedLogIds
+            String relatedLogIds,
+            String aiAnalysis
     ) {
     }
+
 
     public record EquipmentInfo(
             Long equipmentId,
