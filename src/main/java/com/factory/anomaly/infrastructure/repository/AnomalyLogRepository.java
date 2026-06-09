@@ -23,7 +23,7 @@ public interface AnomalyLogRepository extends JpaRepository<AnomalyLog, Long> {
                     OR LOWER(a.detectionReason) LIKE LOWER(CONCAT('%', :keyword, '%'))
                     OR LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
               )
-            ORDER BY a.occurredTime DESC
+            ORDER BY a.firstDetectedAt DESC
             """)
     List<AnomalyLog> findAnomalyLogs(
             @Param("processId") Long processId,

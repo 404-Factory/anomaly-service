@@ -20,14 +20,14 @@ public record AnomalyDetectionResponse(
 ) {
     public static AnomalyDetectionResponse from(AnomalyLog entity) {
         return new AnomalyDetectionResponse(
-                entity.getLogId(),
+                entity.getId(),
                 entity.getEquipment() != null ? entity.getEquipment().getId() : null,
                 entity.getEquipmentRecipe() != null ? entity.getEquipmentRecipe().getId() : null,
                 entity.getRecipeParameter(),
                 entity.getSeverity(),
                 entity.getRuleName(),
                 entity.getAnomalyType(),
-                entity.getOccurredTime(),
+                entity.getFirstDetectedAt() != null ? java.time.LocalDateTime.ofInstant(entity.getFirstDetectedAt(), java.time.ZoneOffset.UTC) : null,
                 entity.getDetectionReason()
         );
     }

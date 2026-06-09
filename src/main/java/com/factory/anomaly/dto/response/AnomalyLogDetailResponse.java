@@ -49,7 +49,7 @@ public record AnomalyLogDetailResponse(
         var masterRecipe = equipmentRecipe != null ? equipmentRecipe.getMasterRecipe() : null;
 
         return new AnomalyLogDetailResponse(
-                anomalyLog.getLogId(),
+                anomalyLog.getId(),
 
                 anomalyLog.getLogType(),
 
@@ -69,8 +69,8 @@ public record AnomalyLogDetailResponse(
                 anomalyLog.getRuleName(),
                 anomalyLog.getAnomalyType(),
 
-                anomalyLog.getOccurredTime(),
-                anomalyLog.getWindowStartTime(),
+                anomalyLog.getFirstDetectedAt() != null ? java.time.LocalDateTime.ofInstant(anomalyLog.getFirstDetectedAt(), java.time.ZoneOffset.UTC) : null,
+                anomalyLog.getLastDetectedAt() != null ? java.time.LocalDateTime.ofInstant(anomalyLog.getLastDetectedAt(), java.time.ZoneOffset.UTC) : null,
                 anomalyLog.getSampleCount(),
                 anomalyLog.getDetectionReason(),
 

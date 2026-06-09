@@ -40,7 +40,7 @@ public record AnomalyLogResponse(
         var equipmentRecipe = entity.getEquipmentRecipe();
 
         return new AnomalyLogResponse(
-                entity.getLogId(),
+                entity.getId(),
 
                 entity.getLogType(),
 
@@ -59,7 +59,7 @@ public record AnomalyLogResponse(
                 entity.getRuleName(),
                 entity.getAnomalyType(),
 
-                entity.getOccurredTime(),
+                entity.getFirstDetectedAt() != null ? java.time.LocalDateTime.ofInstant(entity.getFirstDetectedAt(), java.time.ZoneOffset.UTC) : null,
                 entity.getDetectionReason(),
 
                 entity.getRelatedLogIds()

@@ -28,8 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -189,16 +190,18 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 ruleResult.severity()
         );
 
+        Instant detectedInstant = detectedAt.toInstant(ZoneOffset.UTC);
+
         AnomalyLog anomalyLog = AnomalyLog.builder()
                 .equipment(equipment)
                 .equipmentRecipe(equipmentRecipe)
                 .recipeParameter(sensorType)
                 .severity(ruleResult.severity())
-                .occurredTime(detectedAt)
+                .firstDetectedAt(detectedInstant)
                 .ruleName(ruleResult.ruleName())
                 .anomalyType(ruleResult.anomalyType())
                 .logType(LogType.SENSOR)
-                .windowStartTime(detectedAt.minusMinutes(FIVE_MINUTES))
+                .lastDetectedAt(detectedInstant.minusSeconds(FIVE_MINUTES * 60L))
                 .sampleCount(fiveMinuteSamples.size())
                 .detectionReason(ruleResult.reason())
                 .relatedLogIds(null)
@@ -212,7 +215,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
         log.info(
                 "Anomaly log saved. logId={}, equipmentId={}, equipmentRecipeId={}, sensorType={}, severity={}, ruleName={}",
-                savedAnomalyLog.getLogId(),
+                savedAnomalyLog.getId(),
                 equipment.getId(),
                 equipmentRecipe.getId(),
                 sensorType,
@@ -225,7 +228,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 .equipmentName(equipment.getName())
                 .recipeParameter(sensorType)
                 .severity(savedAnomalyLog.getSeverity().name())
-                .occurredTime(savedAnomalyLog.getOccurredTime().atZone(ZoneId.systemDefault()).toInstant())
+                .occurredTime(savedAnomalyLog.getFirstDetectedAt())
                 .causeRule(savedAnomalyLog.getRuleName().name())
                 .build();
 
@@ -239,7 +242,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         } else {
             log.info(
                     "Skip anomaly event publishing. reason=EVENT_PUBLISH_DISABLED, logId={}",
-                    savedAnomalyLog.getLogId()
+                    savedAnomalyLog.getId()
             );
         }
 
