@@ -20,7 +20,6 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Getter
-@Setter
 public class Equipment {
 
     @Id
@@ -36,4 +35,9 @@ public class Equipment {
 
     @Column(name = "status")
     private String status;
+
+    public void update(String name, Process process) {
+        this.name = name;
+        this.process = process;
+    }
 }

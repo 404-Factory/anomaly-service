@@ -39,11 +39,16 @@ public class EquipmentUpdatedHandler implements EventHandler<EquipmentPayload> {
             process = processRepository.findById(payload.getProcessId()).orElse(null);
         }
 
-        Equipment equipment = Equipment.builder()
-                .id(payload.getEquipmentId())
-                .name(payload.getName())
-                .process(process)
-                .build();
+        Equipment equipment = equipmentRepository.findById(payload.getEquipmentId()).orElse(null);
+        if (equipment != null) {
+            equipment.update(payload.getName(), process);
+        } else {
+            equipment = Equipment.builder()
+                    .id(payload.getEquipmentId())
+                    .name(payload.getName())
+                    .process(process)
+                    .build();
+        }
         equipmentRepository.save(equipment);
     }
 }
