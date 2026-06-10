@@ -1,8 +1,8 @@
 package com.factory.anomaly.engine;
 
-import com.factory.anomaly.infrastructure.enums.AnomalyType;
-import com.factory.anomaly.infrastructure.enums.RuleName;
-import com.factory.anomaly.infrastructure.enums.Severity;
+import com.factory.anomaly.domain.enums.AnomalyType;
+import com.factory.anomaly.domain.enums.RuleName;
+import com.factory.anomaly.domain.enums.Severity;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;

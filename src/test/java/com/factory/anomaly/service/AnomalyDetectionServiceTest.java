@@ -1,23 +1,14 @@
 package com.factory.anomaly.service;
 
-import com.factory.anomaly.dto.SensorSnapshotDto;
 import com.factory.anomaly.engine.RuleEngine;
 import com.factory.anomaly.engine.RuleResult;
 import com.factory.anomaly.infrastructure.entity.AnomalyLog;
-import com.factory.anomaly.infrastructure.entity.Equipment;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipe;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetail;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetailId;
-import com.factory.anomaly.infrastructure.enums.AnomalyType;
-import com.factory.anomaly.infrastructure.enums.LogType;
-import com.factory.anomaly.infrastructure.enums.RuleName;
-import com.factory.anomaly.infrastructure.enums.Severity;
+import com.factory.anomaly.domain.enums.AnomalyType;
+import com.factory.anomaly.domain.enums.RuleName;
+import com.factory.anomaly.domain.enums.Severity;
 import com.factory.anomaly.infrastructure.redis.SensorRedisRepository;
 import com.factory.anomaly.infrastructure.redis.SensorSample;
 import com.factory.anomaly.infrastructure.repository.AnomalyLogRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRecipeDetailRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRecipeRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;

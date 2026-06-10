@@ -4,22 +4,14 @@ import org.springframework.beans.factory.annotation.Value;
 import com.factory.anomaly.engine.RuleEngine;
 import com.factory.anomaly.engine.RuleResult;
 import com.factory.anomaly.engine.RuleSensorSample;
-import com.factory.anomaly.event.payload.AnomalyCreatedPayload;
-import com.factory.anomaly.event.payload.type.AnomalyEventType;
+import com.factory.anomaly.event.producer.payload.AnomalyCreatedPayload;
+import com.factory.anomaly.event.type.AnomalyEventType;
 import com.factory.anomaly.infrastructure.entity.AnomalyLog;
-import com.factory.anomaly.infrastructure.entity.Equipment;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipe;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetail;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetailId;
 import com.factory.anomaly.infrastructure.enums.LogType;
 import com.factory.anomaly.infrastructure.redis.SensorRedisRepository;
 import com.factory.anomaly.infrastructure.redis.SensorSample;
 import com.factory.anomaly.infrastructure.repository.AnomalyLogRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRecipeDetailRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRecipeRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.factory.anomaly.dto.SensorSnapshotDto;
 import com.factory.anomaly.infrastructure.enums.RuleName;
 import com.factory.common.event.domain.EventEnvelope;
 import com.factory.common.event.support.EventEnvelopeFactory;
@@ -50,11 +42,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
     private final SensorRedisRepository sensorRedisRepository;
     private final RuleEngine ruleEngine;
     private final AnomalyLogRepository anomalyLogRepository;
-    private final EquipmentRepository equipmentRepository;
-    private final EquipmentRecipeRepository equipmentRecipeRepository;
-    private final EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
     private final EventPublisher eventPublisher;
-    private final EventEnvelopeFactory eventEnvelopeFactory;
     private final ObjectMapper objectMapper;
 
     @Value("${app.event.publish-enabled:false}")
@@ -65,6 +53,10 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         return detect(equipmentCode, sensorType, LocalDateTime.now());
     }
 
+    // 여기서 말하는 equipmentCode는 equipmentName, sensorType은 param, detectedAt은 latestTimestamp
+    // 한 batch에 대해서
+    // param 별로 latestTimestamp 줄 거니까, detect 해주세요
+    /// 왜 Optional<AnomalyLog>를 리턴해? 쓰지도 않는데?
     @Override
     public Optional<AnomalyLog> detect(
             String equipmentCode,
@@ -78,6 +70,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 detectedAt
         );
 
+        // 5분치 샘플
         List<SensorSample> fiveMinuteRedisSamples = sensorRedisRepository.findSamples(
                 equipmentCode,
                 sensorType,
@@ -103,6 +96,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
             return Optional.empty();
         }
 
+        // 1분치 샘플
         List<SensorSample> oneMinuteRedisSamples = sensorRedisRepository.findSamples(
                 equipmentCode,
                 sensorType,
@@ -118,9 +112,12 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 oneMinuteRedisSamples.size()
         );
 
+        /// 뭐하는 애일까요...?
         List<RuleSensorSample> fiveMinuteSamples = toRuleSamples(fiveMinuteRedisSamples);
         List<RuleSensorSample> oneMinuteSamples = toRuleSamples(oneMinuteRedisSamples);
 
+        // equipmentName으로 equipment 가져와
+        /// 여기서 대체 뭘 쓰나 보자
         Optional<Equipment> equipmentOptional = equipmentRepository.findByName(equipmentCode);
 
         if (equipmentOptional.isEmpty()) {
@@ -133,6 +130,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
         Equipment equipment = equipmentOptional.get();
 
+        // equipment Id로 최신 recipe 가져와
         Optional<EquipmentRecipe> equipmentRecipeOptional = equipmentRecipeRepository
                 .findTopByEquipment_IdOrderByVersionDesc(equipment.getId());
 
@@ -147,6 +145,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
         EquipmentRecipe equipmentRecipe = equipmentRecipeOptional.get();
 
+        // (recipeId, param)으로 recipeDetail 가져와
         Optional<EquipmentRecipeDetail> recipeDetailOptional = equipmentRecipeDetailRepository
                 .findById(new EquipmentRecipeDetailId(equipmentRecipe.getId(), sensorType));
 
@@ -169,6 +168,11 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 recipeDetail.getMax()
         );
 
+        // recipeDetail이 필요한 이유가 나오겠네?
+        // recipeDetail 필요한 1번 이유: recipe min, max를 얻기 위함임
+        ///  min, max
+        // equipment 1개의 sensor 당 1분에 최대 1개 anomaly 발생 (즉, equipment 1개당 1분 최대 2개 이상)
+        // 이건 그냥 business logic 문제임
         RuleResult ruleResult = ruleEngine.evaluate(
                 fiveMinuteSamples,
                 oneMinuteSamples,
@@ -195,8 +199,10 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 ruleResult.severity()
         );
 
+        // 측정된 시간 (latestTimestamp)
         Instant detectedInstant = detectedAt.toInstant(ZoneOffset.UTC);
 
+        // sliding window start네
         Instant firstDetectedAt;
         int sampleCount;
         if (ruleResult.ruleName() == RuleName.NELSON_RULE_3) {
@@ -207,11 +213,19 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
             sampleCount = fiveMinuteSamples.size();
         }
 
+        // snapshot -> 중요한 건 Point
         List<SensorSnapshotDto> snapshots = new ArrayList<>();
+
+        // 현재 선택된 recipe를 가지고 detail을 가져와, 즉 모든 param에 대한 정보 가져와
         List<EquipmentRecipeDetail> recipeDetails = equipmentRecipeDetailRepository.findByEquipmentRecipe_Id(equipmentRecipe.getId());
+        // (recipe_equipment_id, param) 별로 순회하게 될 거임 (정확히는 recipe detail이지만, 저게 PK니까)
         for (EquipmentRecipeDetail detail : recipeDetails) {
+            // param 가져와 (이건, sensorType에 대응됨)
             String param = detail.getId().getParam();
+            // (equipment, param)에 대응되는 key 값 다 가져와
             List<String> keys = sensorRedisRepository.findKeys(equipmentCode, param);
+            // 없다고?
+            /// DTO 뭘 의미하는 거지?
             if (keys.isEmpty()) {
                 snapshots.add(new SensorSnapshotDto(
                         param,
@@ -222,13 +236,20 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                         List.of()
                 ));
             } else {
+                // 아까 그 key들을 순회
+                // sensor:equipment:*:param -> 그냥 해당하는 모든 센서 보겠다는 이야기네?
                 for (String key : keys) {
                     String[] parts = key.split(":");
+                    ///  자꾸 sensorId와 param이 혼동되네
+                    // 그 이유가 놀라운게 진짜 sensorId(name)가 대입되기도, param이 대입되기도 함
                     String sensorId = parts.length > 2 ? parts[2] : param;
+                    // lastTimestamp 기준으로 5분전부터 측정값 다 가져와
                     List<SensorSample> samples = sensorRedisRepository.findSamplesByKey(key, detectedAt, FIVE_MINUTES, 0);
                     List<SensorSnapshotDto.Point> points = samples.stream()
                             .map(s -> new SensorSnapshotDto.Point(s.timestamp().toInstant(), s.value()))
                             .toList();
+                    // 의도하는 바는 일단 알겠음
+                    // 센서별로, 해당 장비 recipe의 min, max, 측정값 전부 드릴게요
                     snapshots.add(new SensorSnapshotDto(
                             sensorId,
                             param,
@@ -241,6 +262,16 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
             }
         }
 
+        // equipment 당 param이 최대 2개
+        // param 100개
+        // param 별로 detect를 했는데, param 100개에 대한 5분치 데이터가 들어가
+        // param1은 param1~param100 까지의 5분치 data json을 가져
+        // param2은 param1~param100 까지의 5분치 data json을 가져
+        // param3은 param1~param100 까지의 5분치 data json을 가져
+        // param4은 param1~param100 까지의 5분치 data json을 가져
+        // ...
+        // param100은 param1~param100 까지의 5분치 data json을 가져
+
         String snapshotDataJson = null;
         try {
             snapshotDataJson = objectMapper.writeValueAsString(snapshots);
@@ -248,6 +279,8 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
             log.error("Failed to serialize sensor snapshot data", e);
         }
 
+        // 로그 드릴게요
+        // referenceValue는 기준치 (이상의 기준, 예를 들어 min, max를 넘었다던가, 표준편차 관련 값을 넘었다던가) -> threshold
         AnomalyLog anomalyLog = AnomalyLog.builder()
                 .equipment(equipment)
                 .equipmentRecipe(equipmentRecipe)
@@ -322,6 +355,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         );
     }
 
+    /// 얘는, 왜 바꿔?
     private List<RuleSensorSample> toRuleSamples(List<SensorSample> redisSamples) {
         return redisSamples.stream()
                 .map(sample -> new RuleSensorSample(

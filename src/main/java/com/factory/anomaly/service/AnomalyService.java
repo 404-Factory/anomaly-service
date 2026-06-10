@@ -1,10 +1,12 @@
 package com.factory.anomaly.service;
 
-import com.factory.anomaly.dto.response.AnomalyLogDetailResponse;
-import com.factory.anomaly.dto.response.AnomalyLogResponse;
-import java.util.List;
+import com.factory.anomaly.domain.dto.response.AnomalyDetailResponse;
+import com.factory.anomaly.domain.dto.response.AnomalyResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface AnomalyService {
-    List<AnomalyLogResponse> getAnomalyLogs(Long processId, Long equipmentId, String keyword);
-    AnomalyLogDetailResponse getAnomalyLogDetail(Long anomalyId);
+
+    Page<AnomalyResponse> getAnomalies(Long processId, Long equipmentId, String keyword, Pageable pageable);
+    AnomalyDetailResponse getAnomaly(Long anomalyId);
 }

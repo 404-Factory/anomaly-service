@@ -1,6 +1,6 @@
 package com.factory.anomaly.engine;
 
-import com.factory.anomaly.infrastructure.enums.Severity;
+import com.factory.anomaly.domain.enums.Severity;
 import org.springframework.stereotype.Component;
 
 @Component
