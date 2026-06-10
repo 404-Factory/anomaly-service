@@ -203,4 +203,137 @@ class AnomalyDetectionServiceTest {
         // Verify release lock was called
         verify(sensorRedisRepository).releaseLock(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH");
     }
+
+    @Test
+    void testConcurrentDetect() throws InterruptedException {
+        // Given
+        String equipmentCode = "1";
+        String sensorType = "TEMP";
+        Instant detectedAt = Instant.parse("2026-06-10T12:00:59Z");
+
+        SensorViolationDto violation = new SensorViolationDto(
+                equipmentCode,
+                sensorType,
+                RuleName.NELSON_RULE_3,
+                AnomalyType.HIGH,
+                Severity.WARNING,
+                15.0,
+                12.0,
+                3.0,
+                25.0,
+                10.0,
+                50.0,
+                detectedAt,
+                10,
+                "Nelson Rule 3 Violation"
+        );
+
+        // State variables to track lock status and cached anomaly ID
+        java.util.concurrent.atomic.AtomicBoolean lockAcquired = new java.util.concurrent.atomic.AtomicBoolean(false);
+        java.util.concurrent.atomic.AtomicReference<Long> cacheReference = new java.util.concurrent.atomic.AtomicReference<>(null);
+        java.util.concurrent.atomic.AtomicInteger dbInsertCount = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger dbUpdateCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        // Mock Lock acquisition: only succeed if lock is not currently held
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+                .thenAnswer(invocation -> lockAcquired.compareAndSet(false, true));
+
+        // Mock Lock release
+        doAnswer(invocation -> {
+            lockAcquired.set(false);
+            return null;
+        }).when(sensorRedisRepository).releaseLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"));
+
+        // Mock Cache Read
+        when(sensorRedisRepository.getAnomalyCache(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH")))
+                .thenAnswer(invocation -> cacheReference.get());
+
+        // Mock Cache Write
+        doAnswer(invocation -> {
+            Long id = invocation.getArgument(4);
+            cacheReference.set(id);
+            return null;
+        }).when(sensorRedisRepository).setAnomalyCache(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong(), anyLong());
+
+        // EquipmentProjection mock
+        EquipmentProjection equipment = mock(EquipmentProjection.class);
+        when(equipment.getId()).thenReturn(1L);
+        when(equipment.getName()).thenReturn("EQP-01");
+        when(equipmentProjectionRepository.findById(1L)).thenReturn(Optional.of(equipment));
+
+        // Mock existing anomaly lookup
+        Anomaly existingAnomaly = Anomaly.builder()
+                .id(10L)
+                .name("Anomaly_EQP-01_TEMP")
+                .equipmentId(1L)
+                .recipeParameter(sensorType)
+                .severity(Severity.CAUTION)
+                .lastDetectedAt(Instant.parse("2026-06-10T12:00:00Z"))
+                .ruleName(RuleName.NELSON_RULE_3)
+                .anomalyType(AnomalyType.HIGH)
+                .logType(com.factory.anomaly.domain.enums.LogType.SENSOR)
+                .firstDetectedAt(Instant.parse("2026-06-10T12:00:00Z"))
+                .sampleCount(5)
+                .build();
+        when(anomalyRepository.findById(10L)).thenReturn(Optional.of(existingAnomaly));
+
+        // Mock DB Save: increment counter based on whether ID exists
+        when(anomalyRepository.save(any(Anomaly.class))).thenAnswer(invocation -> {
+            Anomaly a = invocation.getArgument(0);
+            if (a.getId() == null) {
+                dbInsertCount.incrementAndGet();
+                return Anomaly.builder()
+                        .id(10L)
+                        .name(a.getName())
+                        .equipmentId(a.getEquipmentId())
+                        .recipeParameter(a.getRecipeParameter())
+                        .severity(a.getSeverity())
+                        .lastDetectedAt(a.getLastDetectedAt())
+                        .ruleName(a.getRuleName())
+                        .anomalyType(a.getAnomalyType())
+                        .logType(a.getLogType())
+                        .firstDetectedAt(a.getFirstDetectedAt())
+                        .sampleCount(a.getSampleCount())
+                        .detectionReason(a.getDetectionReason())
+                        .build();
+            } else {
+                dbUpdateCount.incrementAndGet();
+                return a;
+            }
+        });
+
+        // Run 4 threads concurrently trying to detect the same violation
+        int numThreads = 4;
+        java.util.concurrent.ExecutorService executorService = java.util.concurrent.Executors.newFixedThreadPool(numThreads);
+        java.util.concurrent.CountDownLatch readyLatch = new java.util.concurrent.CountDownLatch(numThreads);
+        java.util.concurrent.CountDownLatch startLatch = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch doneLatch = new java.util.concurrent.CountDownLatch(numThreads);
+
+        for (int i = 0; i < numThreads; i++) {
+            executorService.submit(() -> {
+                readyLatch.countDown();
+                try {
+                    startLatch.await(); // wait for all threads to start at once
+                    anomalyDetectionService.detect(violation);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        readyLatch.await();
+        startLatch.countDown(); // start all threads concurrently
+        doneLatch.await();
+        executorService.shutdown();
+
+        // Assertions:
+        // 1. Only 1 thread should insert a new Anomaly (dbInsertCount should be 1)
+        assertThat(dbInsertCount.get()).isEqualTo(1);
+        // 2. The other 3 threads should find the cached anomaly and update it (dbUpdateCount should be 3)
+        assertThat(dbUpdateCount.get()).isEqualTo(3);
+        // 3. Cache reference should contain the anomaly ID (10L)
+        assertThat(cacheReference.get()).isEqualTo(10L);
+    }
 }
