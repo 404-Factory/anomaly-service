@@ -76,8 +76,12 @@ class AnomalyDetectionServiceTest {
                 "Nelson Rule 3 Violation"
         );
 
+        // Mock Lock acquisition
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+                .thenReturn(true);
+
         // Redis cache is empty
-        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3"))
+        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH"))
                 .thenReturn(null);
 
         // EquipmentProjection mock
@@ -123,9 +127,11 @@ class AnomalyDetectionServiceTest {
         assertThat(log.getSampleCount()).isEqualTo(10);
 
         // Verify set cache was called
-        verify(sensorRedisRepository).setAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3", 10L, 300);
+        verify(sensorRedisRepository).setAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH", 10L, 300);
         // Verify save was called once
         verify(anomalyRepository, times(1)).save(any(Anomaly.class));
+        // Verify release lock was called
+        verify(sensorRedisRepository).releaseLock(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH");
     }
 
     @Test
@@ -152,8 +158,12 @@ class AnomalyDetectionServiceTest {
                 "Nelson Rule 3 Violation"
         );
 
+        // Mock Lock acquisition
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+                .thenReturn(true);
+
         // Redis cache has key pointing to anomaly ID 10L
-        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3"))
+        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH"))
                 .thenReturn(10L);
 
         // Mock existing anomaly in DB
@@ -162,7 +172,7 @@ class AnomalyDetectionServiceTest {
                 .name("Anomaly_EQP-01_TEMP")
                 .equipmentId(1L)
                 .recipeParameter(sensorType)
-                .severity(Severity.WARNING)
+                .severity(Severity.CAUTION)
                 .lastDetectedAt(Instant.parse("2026-06-10T12:00:00Z"))
                 .ruleName(RuleName.NELSON_RULE_3)
                 .anomalyType(AnomalyType.HIGH)
@@ -183,12 +193,14 @@ class AnomalyDetectionServiceTest {
         assertThat(log.getId()).isEqualTo(10L);
         assertThat(log.getLastDetectedAt()).isEqualTo(detectedAt);
         assertThat(log.getSampleCount()).isEqualTo(10);
+        assertThat(log.getSeverity()).isEqualTo(Severity.WARNING); // upgraded from CAUTION!
 
         // Verify save was called with the updated anomaly
         verify(anomalyRepository, times(1)).save(existingAnomaly);
         // Verify no new anomaly was created via builder
         verify(equipmentProjectionRepository, never()).findById(anyLong());
-        verify(sensorRedisRepository, never()).setAnomalyCache(anyString(), anyString(), anyString(), anyLong(), anyLong());
+        verify(sensorRedisRepository, never()).setAnomalyCache(anyString(), anyString(), anyString(), anyString(), anyLong(), anyLong());
+        // Verify release lock was called
+        verify(sensorRedisRepository).releaseLock(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH");
     }
 }
-

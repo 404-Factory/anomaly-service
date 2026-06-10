@@ -56,16 +56,18 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
     @Override
     public Optional<Anomaly> detect(SensorViolationDto violation) {
         log.info(
-                "Start anomaly detection from Flink violation. equipmentCode={}, sensorType={}, ruleName={}, detectedAt={}",
+                "Start anomaly detection from Flink violation. equipmentCode={}, sensorType={}, ruleName={}, anomalyType={}, detectedAt={}",
                 violation.equipmentId(),
                 violation.sensorType(),
                 violation.ruleName(),
+                violation.anomalyType(),
                 violation.detectedAt()
         );
 
         String equipmentCode = violation.equipmentId();
         String sensorType = violation.sensorType();
         String ruleNameStr = violation.ruleName().name();
+        String anomalyTypeStr = violation.anomalyType().name();
 
         // 1. Acquire Distributed Lock (with spin-lock retry)
         boolean isLocked = false;
@@ -73,7 +75,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         int retryCount = 0;
 
         while (retryCount < maxRetries) {
-            isLocked = sensorRedisRepository.acquireLock(equipmentCode, sensorType, ruleNameStr, 5); // 5s TTL
+            isLocked = sensorRedisRepository.acquireLock(equipmentCode, sensorType, ruleNameStr, anomalyTypeStr, 5); // 5s TTL
             if (isLocked) {
                 break;
             }
@@ -89,10 +91,11 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
         if (!isLocked) {
             log.error(
-                    "Failed to acquire distributed lock for anomaly detection. equipmentCode={}, sensorType={}, ruleName={}",
+                    "Failed to acquire distributed lock for anomaly detection. equipmentCode={}, sensorType={}, ruleName={}, anomalyType={}",
                     equipmentCode,
                     sensorType,
-                    ruleNameStr
+                    ruleNameStr,
+                    anomalyTypeStr
             );
             return Optional.empty();
         }
@@ -102,16 +105,18 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
             Long cachedAnomalyId = sensorRedisRepository.getAnomalyCache(
                     equipmentCode,
                     sensorType,
-                    ruleNameStr
+                    ruleNameStr,
+                    anomalyTypeStr
             );
 
             if (cachedAnomalyId != null) {
                 log.info(
-                        "Duplicate anomaly detected (cached). updating existing anomaly logId={}, equipmentCode={}, sensorType={}, ruleName={}",
+                        "Duplicate anomaly detected (cached). updating existing anomaly logId={}, equipmentCode={}, sensorType={}, ruleName={}, anomalyType={}",
                         cachedAnomalyId,
                         equipmentCode,
                         sensorType,
-                        violation.ruleName()
+                        violation.ruleName(),
+                        anomalyTypeStr
                 );
 
                 Optional<Anomaly> existingAnomalyOpt = anomalyRepository.findById(cachedAnomalyId);
@@ -119,7 +124,8 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                     Anomaly existingAnomaly = existingAnomalyOpt.get();
                     existingAnomaly.update(
                             violation.detectedAt(),
-                            violation.sampleCount() != null ? violation.sampleCount() : existingAnomaly.getSampleCount()
+                            violation.sampleCount() != null ? violation.sampleCount() : existingAnomaly.getSampleCount(),
+                            violation.severity()
                     );
                     Anomaly updatedAnomaly = anomalyRepository.save(existingAnomaly);
                     return Optional.of(updatedAnomaly);
@@ -174,12 +180,13 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
             Anomaly savedAnomaly = anomalyRepository.save(anomaly);
 
             log.info(
-                    "New anomaly log saved. logId={}, equipmentId={}, sensorType={}, severity={}, ruleName={}",
+                    "New anomaly log saved. logId={}, equipmentId={}, sensorType={}, severity={}, ruleName={}, anomalyType={}",
                     savedAnomaly.getId(),
                     equipment.getId(),
                     sensorType,
                     savedAnomaly.getSeverity(),
-                    savedAnomaly.getRuleName()
+                    savedAnomaly.getRuleName(),
+                    savedAnomaly.getAnomalyType()
             );
 
             // 5. Cache the anomaly ID in Redis (TTL = 300 seconds)
@@ -187,6 +194,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                     equipmentCode,
                     sensorType,
                     ruleNameStr,
+                    anomalyTypeStr,
                     savedAnomaly.getId(),
                     300
             );
@@ -220,7 +228,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
         } finally {
             // 7. Always release the lock
-            sensorRedisRepository.releaseLock(equipmentCode, sensorType, ruleNameStr);
+            sensorRedisRepository.releaseLock(equipmentCode, sensorType, ruleNameStr, anomalyTypeStr);
         }
     }
 }
