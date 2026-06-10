@@ -64,8 +64,6 @@ public class SensorDataConsumer {
                     String measuredAt = measurement.measuredAt();
                     double score;
                     try {
-                        /// 1781008800.123 형태 -> 왜? 그냥 EpochMilli만 쓰지?
-                        // 근데 일단 중요하진 않음 그냥 따라
                         score =
                             OffsetDateTime.parse(measuredAt).toInstant().toEpochMilli() / 1000.0;
                     } catch (Exception e) {
@@ -83,10 +81,10 @@ public class SensorDataConsumer {
                     /// 이건 진짜 중요할 듯, 각각 PK를 쓰는 게 맞지 않나?
                     // 이러면 일단 PK는 없네?
                     // 첫 시작 이후 3분이 지났어.
-                    // 설비 이름 및 센서 이름이 바뀜
+                    // 설비 이름
                     // 다른 key에 들어가네?
                     // PK를 써야하는 거 아닌가?
-                    /// 애초에 device에서 넘어올 때, equipment PK, sensor PK가 같이 와야하는 거 같은데
+                    /// 애초에 device에서 넘어올 때, equipment PK가 같이 와야하는 거 같은데
                     for (SensorReadingDto sensor : measurement.sensors()) {
                         String key = String.format("sensor:%s:%s:%s",
                             batch.equipmentId(),
@@ -109,7 +107,6 @@ public class SensorDataConsumer {
                             continue;
                         }
 
-                        /// RedisConnection을 사용하기 위한 변환 : API 요구사항임 -> 변경 불가
                         byte[] rawKey = key.getBytes(StandardCharsets.UTF_8);
                         byte[] rawValue = jsonValue.getBytes(StandardCharsets.UTF_8);
 
@@ -132,8 +129,6 @@ public class SensorDataConsumer {
 
             for (Map.Entry<String, OffsetDateTime> entry : latestTimestamps.entrySet()) {
                 String sensorType = entry.getKey();
-                /// 꼭 LocalDateTime이 필요한가?
-                // 그래도 굴러가 냅둬
                 LocalDateTime detectedAtLocal = entry.getValue()
                     .toLocalDateTime(); // standard JVM time is UTC
                 log.info(

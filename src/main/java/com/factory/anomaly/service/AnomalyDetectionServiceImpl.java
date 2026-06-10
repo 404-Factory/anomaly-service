@@ -1,6 +1,7 @@
 package com.factory.anomaly.service;
 
 import com.factory.anomaly.infrastructure.entity.Anomaly;
+import com.factory.common.event.support.DomainEventFactory;
 import org.springframework.beans.factory.annotation.Value;
 import com.factory.anomaly.engine.RuleEngine;
 import com.factory.anomaly.engine.RuleResult;
@@ -202,7 +203,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         // 측정된 시간 (latestTimestamp)
         Instant detectedInstant = detectedAt.toInstant(ZoneOffset.UTC);
 
-        // sliding window start네
+        // sliding window start
         Instant firstDetectedAt;
         int sampleCount;
         if (ruleResult.ruleName() == RuleName.NELSON_RULE_3) {
@@ -212,73 +213,6 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
             firstDetectedAt = detectedInstant.minusSeconds(300L);
             sampleCount = fiveMinuteSamples.size();
         }
-
-        // snapshot -> 중요한 건 Point
-        List<SensorSnapshotDto> snapshots = new ArrayList<>();
-
-        // 현재 선택된 recipe를 가지고 detail을 가져와, 즉 모든 param에 대한 정보 가져와
-        List<EquipmentRecipeDetail> recipeDetails = equipmentRecipeDetailRepository.findByEquipmentRecipe_Id(equipmentRecipe.getId());
-        // (recipe_equipment_id, param) 별로 순회하게 될 거임 (정확히는 recipe detail이지만, 저게 PK니까)
-        for (EquipmentRecipeDetail detail : recipeDetails) {
-            // param 가져와 (이건, sensorType에 대응됨)
-            String param = detail.getId().getParam();
-            // (equipment, param)에 대응되는 key 값 다 가져와
-            List<String> keys = sensorRedisRepository.findKeys(equipmentCode, param);
-            // 없다고?
-            /// DTO 뭘 의미하는 거지?
-            if (keys.isEmpty()) {
-                snapshots.add(new SensorSnapshotDto(
-                        param,
-                        param,
-                        null,
-                        detail.getMin(),
-                        detail.getMax(),
-                        List.of()
-                ));
-            } else {
-                // 아까 그 key들을 순회
-                // sensor:equipment:*:param -> 그냥 해당하는 모든 센서 보겠다는 이야기네?
-                for (String key : keys) {
-                    String[] parts = key.split(":");
-                    ///  자꾸 sensorId와 param이 혼동되네
-                    // 그 이유가 놀라운게 진짜 sensorId(name)가 대입되기도, param이 대입되기도 함
-                    String sensorId = parts.length > 2 ? parts[2] : param;
-                    // lastTimestamp 기준으로 5분전부터 측정값 다 가져와
-                    List<SensorSample> samples = sensorRedisRepository.findSamplesByKey(key, detectedAt, FIVE_MINUTES, 0);
-                    List<SensorSnapshotDto.Point> points = samples.stream()
-                            .map(s -> new SensorSnapshotDto.Point(s.timestamp().toInstant(), s.value()))
-                            .toList();
-                    // 의도하는 바는 일단 알겠음
-                    // 센서별로, 해당 장비 recipe의 min, max, 측정값 전부 드릴게요
-                    snapshots.add(new SensorSnapshotDto(
-                            sensorId,
-                            param,
-                            null,
-                            detail.getMin(),
-                            detail.getMax(),
-                            points
-                    ));
-                }
-            }
-        }
-
-        // equipment 당 param이 최대 2개
-        // param 100개
-        // param 별로 detect를 했는데, param 100개에 대한 5분치 데이터가 들어가
-        // param1은 param1~param100 까지의 5분치 data json을 가져
-        // param2은 param1~param100 까지의 5분치 data json을 가져
-        // param3은 param1~param100 까지의 5분치 data json을 가져
-        // param4은 param1~param100 까지의 5분치 data json을 가져
-        // ...
-        // param100은 param1~param100 까지의 5분치 data json을 가져
-
-        String snapshotDataJson = null;
-        try {
-            snapshotDataJson = objectMapper.writeValueAsString(snapshots);
-        } catch (Exception e) {
-            log.error("Failed to serialize sensor snapshot data", e);
-        }
-
         // 로그 드릴게요
         // referenceValue는 기준치 (이상의 기준, 예를 들어 min, max를 넘었다던가, 표준편차 관련 값을 넘었다던가) -> threshold
         AnomalyLog anomalyLog = AnomalyLog.builder()
