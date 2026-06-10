@@ -1,8 +1,8 @@
-package com.factory.anomaly.event.consumer;
+package com.factory.anomaly.infrastructure.kafka;
 
-import com.factory.anomaly.dto.kafka.SensorDataBatchDto;
-import com.factory.anomaly.dto.kafka.MeasurementDto;
-import com.factory.anomaly.dto.kafka.SensorReadingDto;
+import com.factory.anomaly.event.payload.MeasurementDto;
+import com.factory.anomaly.event.payload.SensorDataBatchDto;
+import com.factory.anomaly.event.payload.SensorReadingDto;
 import com.factory.anomaly.service.AnomalyDetectionService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

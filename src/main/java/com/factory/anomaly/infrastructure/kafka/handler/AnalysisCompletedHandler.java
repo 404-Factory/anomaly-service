@@ -1,6 +1,6 @@
-package com.factory.anomaly.event.consumer.handler;
+package com.factory.anomaly.infrastructure.kafka.handler;
 
-import com.factory.anomaly.event.consumer.payload.AnalysisCompletedPayload;
+import com.factory.anomaly.event.payload.consumer.AnalysisCompletedPayload;
 import com.factory.anomaly.event.type.AnalysisEventType;
 import com.factory.anomaly.service.AnalysisService;
 import com.factory.anomaly.service.AnalysisSseService;

@@ -1,4 +1,4 @@
-package com.factory.anomaly.event.consumer.payload;
+package com.factory.anomaly.event.payload.consumer;
 
 import com.factory.common.event.domain.EventPayload;
 import lombok.AllArgsConstructor;
@@ -10,8 +10,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class EquipmentPayload implements EventPayload {
+public class EquipmentRecipePayload implements EventPayload {
+    private Long equipmentRecipeId;
     private Long equipmentId;
-    private String name;
-    private Long processId;
+    private Long masterRecipeId;
+    private Double version;
 }

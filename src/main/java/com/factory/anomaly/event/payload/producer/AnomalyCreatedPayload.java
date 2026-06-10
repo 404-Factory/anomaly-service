@@ -1,4 +1,4 @@
-package com.factory.anomaly.event.producer.payload;
+package com.factory.anomaly.event.payload.producer;
 
 import com.factory.common.event.domain.EventPayload;
 import java.time.Instant;

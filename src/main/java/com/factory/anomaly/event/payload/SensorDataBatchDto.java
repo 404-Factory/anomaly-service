@@ -1,4 +1,4 @@
-package com.factory.anomaly.domain.dto.kafka;
+package com.factory.anomaly.event.payload;
 
 import java.util.List;
 
