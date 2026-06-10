@@ -12,8 +12,8 @@ public class SensorRedisRepository {
 
     private final StringRedisTemplate redisTemplate;
 
-    public Long getAnomalyCache(String equipmentCode, String sensorType, String ruleName) {
-        String cacheKey = String.format("anomaly:cache:%s:%s:%s", equipmentCode, sensorType, ruleName);
+    public Long getAnomalyCache(String equipmentCode, String sensorType, String ruleName, String anomalyType) {
+        String cacheKey = String.format("anomaly:cache:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
         String val = redisTemplate.opsForValue().get(cacheKey);
         if (val != null) {
             try {
@@ -25,8 +25,19 @@ public class SensorRedisRepository {
         return null;
     }
 
-    public void setAnomalyCache(String equipmentCode, String sensorType, String ruleName, Long anomalyId, long ttlSeconds) {
-        String cacheKey = String.format("anomaly:cache:%s:%s:%s", equipmentCode, sensorType, ruleName);
+    public void setAnomalyCache(String equipmentCode, String sensorType, String ruleName, String anomalyType, Long anomalyId, long ttlSeconds) {
+        String cacheKey = String.format("anomaly:cache:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
         redisTemplate.opsForValue().set(cacheKey, String.valueOf(anomalyId), Duration.ofSeconds(ttlSeconds));
+    }
+
+    public boolean acquireLock(String equipmentCode, String sensorType, String ruleName, String anomalyType, long expireSeconds) {
+        String lockKey = String.format("anomaly:lock:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
+        Boolean success = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(expireSeconds));
+        return success != null && success;
+    }
+
+    public void releaseLock(String equipmentCode, String sensorType, String ruleName, String anomalyType) {
+        String lockKey = String.format("anomaly:lock:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
+        redisTemplate.delete(lockKey);
     }
 }

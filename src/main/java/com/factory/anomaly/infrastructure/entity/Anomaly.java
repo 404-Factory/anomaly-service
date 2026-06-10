@@ -89,9 +89,12 @@ public class Anomaly {
     @Column(name = "detection_reason", columnDefinition = "TEXT")
     private String detectionReason;
 
-    public void update(Instant lastDetectedAt, Integer sampleCount) {
+    public void update(Instant lastDetectedAt, Integer sampleCount, Severity severity) {
         this.lastDetectedAt = lastDetectedAt;
         this.sampleCount = sampleCount;
+        if (severity != null && (this.severity == null || severity.ordinal() > this.severity.ordinal())) {
+            this.severity = severity;
+        }
     }
 }
 
