@@ -27,16 +27,16 @@ public class AnomalyController {
         return anomalyService.getAnomalies(processId, equipmentId, keyword, pageable);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping({"/{id}", "/{id}/context"})
     public ResponseEntity<AnomalyDetailResponse> getAnomalyLogDetail(
         @PathVariable(name = "id") Long id
     ) {
-        return null;
-        // return anomalyService.getAnomalyLogDetail(anomalyId);
+        return ResponseEntity.ok(anomalyService.getAnomaly(id));
     }
 
     @GetMapping("/{id}/analysis")
-    public ResponseEntity<Void> stream(@PathVariable(name = "id") Long id) {
+    public ResponseEntity<Void> triggerAnalysis(@PathVariable(name = "id") Long id) {
+        anomalyService.triggerAnalysis(id);
         return ResponseEntity.noContent().build();
     }
 }

@@ -91,7 +91,9 @@ public class SensorRedisRepository {
 
             return new SensorSample(
                     OffsetDateTime.parse(redisSensorValue.ts()),
-                    redisSensorValue.value()
+                    redisSensorValue.value(),
+                    redisSensorValue.min(),
+                    redisSensorValue.max()
             );
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Redis 센서 데이터 파싱에 실패했습니다. rawValue=" + rawValue, e);

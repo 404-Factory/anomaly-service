@@ -4,6 +4,8 @@ import java.time.OffsetDateTime;
 
 public record SensorSample(
         OffsetDateTime timestamp,
-        Double value
+        Double value,
+        Double min,
+        Double max
 ) {
 }

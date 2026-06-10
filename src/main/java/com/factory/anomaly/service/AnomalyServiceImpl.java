@@ -38,8 +38,15 @@ public class AnomalyServiceImpl implements AnomalyService {
 
 
     @Override
-    @Transactional
     public AnomalyDetailResponse getAnomaly(Long anomalyId) {
+        anomalyRepository.findById(anomalyId)
+            .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANOMALY_LOG_NOT_FOUND));
+        return anomalyRepository.fetchAnomaly(anomalyId);
+    }
+
+    @Override
+    @Transactional
+    public void triggerAnalysis(Long anomalyId) {
         Anomaly anomaly = anomalyRepository.findById(anomalyId)
             .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANOMALY_LOG_NOT_FOUND));
 
@@ -47,21 +54,22 @@ public class AnomalyServiceImpl implements AnomalyService {
             .orElse(null);
 
         if (analysis == null) {
-
             analysisRepository.save(Analysis.builder()
                 .anomalyId(anomalyId)
                 .status(AnalysisStatus.RUNNING)
                 .summary(null)
                 .build());
-
-            AnalysisRequestedPayload payload = new AnalysisRequestedPayload(anomaly.getId(),
-                anomaly.getEquipmentId(), anomaly.getRecipeParameter());
-
-            eventPublisher.publish(
-                domainEventFactory.create(AnalysisEventType.ANALYSIS_REQUESTED, "Analysis",
-                    String.valueOf(anomaly.getId()), payload));
+        } else {
+            analysis.update(AnalysisStatus.RUNNING, null);
+            analysisRepository.save(analysis);
         }
-        return anomalyRepository.fetchAnomaly(anomalyId);
+
+        AnalysisRequestedPayload payload = new AnalysisRequestedPayload(anomaly.getId(),
+            anomaly.getEquipmentId(), anomaly.getRecipeParameter());
+
+        eventPublisher.publish(
+            domainEventFactory.create(AnalysisEventType.ANALYSIS_REQUESTED, "Analysis",
+                String.valueOf(anomaly.getId()), payload));
     }
 }
 

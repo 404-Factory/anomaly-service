@@ -9,4 +9,5 @@ public interface AnomalyService {
 
     Page<AnomalyResponse> getAnomalies(Long processId, Long equipmentId, String keyword, Pageable pageable);
     AnomalyDetailResponse getAnomaly(Long anomalyId);
+    void triggerAnalysis(Long anomalyId);
 }

@@ -2,13 +2,15 @@ package com.factory.anomaly.service;
 
 import com.factory.anomaly.engine.RuleEngine;
 import com.factory.anomaly.engine.RuleResult;
-import com.factory.anomaly.infrastructure.entity.AnomalyLog;
 import com.factory.anomaly.domain.enums.AnomalyType;
 import com.factory.anomaly.domain.enums.RuleName;
 import com.factory.anomaly.domain.enums.Severity;
+import com.factory.anomaly.infrastructure.entity.Anomaly;
+import com.factory.anomaly.infrastructure.entity.EquipmentProjection;
 import com.factory.anomaly.infrastructure.redis.SensorRedisRepository;
 import com.factory.anomaly.infrastructure.redis.SensorSample;
-import com.factory.anomaly.infrastructure.repository.AnomalyLogRepository;
+import com.factory.anomaly.infrastructure.repository.AnomalyRepository;
+import com.factory.anomaly.infrastructure.repository.EquipmentProjectionRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,13 +42,9 @@ class AnomalyDetectionServiceTest {
     @Mock
     private RuleEngine ruleEngine;
     @Mock
-    private AnomalyLogRepository anomalyLogRepository;
+    private AnomalyRepository anomalyRepository;
     @Mock
-    private EquipmentRepository equipmentRepository;
-    @Mock
-    private EquipmentRecipeRepository equipmentRecipeRepository;
-    @Mock
-    private EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
+    private EquipmentProjectionRepository equipmentProjectionRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
@@ -55,46 +53,37 @@ class AnomalyDetectionServiceTest {
         anomalyDetectionService = new AnomalyDetectionServiceImpl(
                 sensorRedisRepository,
                 ruleEngine,
-                anomalyLogRepository,
-                equipmentRepository,
-                equipmentRecipeRepository,
-                equipmentRecipeDetailRepository,
+                anomalyRepository,
+                equipmentProjectionRepository,
                 mock(com.factory.common.kafka.publisher.EventPublisher.class),
-                mock(com.factory.common.event.support.EventEnvelopeFactory.class),
+                mock(com.factory.common.event.support.DomainEventFactory.class),
                 objectMapper
         );
         ReflectionTestUtils.setField(anomalyDetectionService, "eventPublishEnabled", false);
     }
 
     @Test
-    void testDetectWithNelsonRule3AndSnapshot() throws Exception {
+    void testDetectWithNelsonRule3() throws Exception {
         // Given
-        String equipmentCode = "EQP-01";
+        String equipmentCode = "1";
         String sensorType = "TEMP";
         LocalDateTime detectedAt = LocalDateTime.of(2026, 6, 9, 20, 0, 0);
         Instant detectedInstant = detectedAt.toInstant(ZoneOffset.UTC);
 
-        Equipment equipment = Equipment.builder().id(1L).name(equipmentCode).build();
-        EquipmentRecipe recipe = EquipmentRecipe.builder().id(2L).equipment(equipment).version(1.0).build();
-        EquipmentRecipeDetail detail = EquipmentRecipeDetail.builder()
-                .id(new EquipmentRecipeDetailId(2L, sensorType))
-                .equipmentRecipe(recipe)
-                .min(10.0)
-                .max(50.0)
-                .build();
+        // EquipmentProjection mock
+        EquipmentProjection equipment = mock(EquipmentProjection.class);
+        when(equipment.getId()).thenReturn(1L);
+        when(equipment.getName()).thenReturn("EQP-01");
 
-        when(equipmentRepository.findByName(equipmentCode)).thenReturn(Optional.of(equipment));
-        when(equipmentRecipeRepository.findTopByEquipment_IdOrderByVersionDesc(1L)).thenReturn(Optional.of(recipe));
-        when(equipmentRecipeDetailRepository.findById(any())).thenReturn(Optional.of(detail));
-        when(equipmentRecipeDetailRepository.findByEquipmentRecipe_Id(2L)).thenReturn(List.of(detail));
+        when(equipmentProjectionRepository.findById(1L)).thenReturn(Optional.of(equipment));
 
-        // Mock redis samples
+        // Mock redis samples with min/max stored inside
         List<SensorSample> fiveMinSamples = List.of(
-                new SensorSample(OffsetDateTime.of(2026, 6, 9, 19, 58, 0, 0, ZoneOffset.UTC), 12.0),
-                new SensorSample(OffsetDateTime.of(2026, 6, 9, 19, 59, 0, 0, ZoneOffset.UTC), 15.0)
+                new SensorSample(OffsetDateTime.of(2026, 6, 9, 19, 58, 0, 0, ZoneOffset.UTC), 12.0, 10.0, 50.0),
+                new SensorSample(OffsetDateTime.of(2026, 6, 9, 19, 59, 0, 0, ZoneOffset.UTC), 15.0, 10.0, 50.0)
         );
         List<SensorSample> oneMinSamples = List.of(
-                new SensorSample(OffsetDateTime.of(2026, 6, 9, 19, 59, 0, 0, ZoneOffset.UTC), 15.0)
+                new SensorSample(OffsetDateTime.of(2026, 6, 9, 19, 59, 0, 0, ZoneOffset.UTC), 15.0, 10.0, 50.0)
         );
 
         when(sensorRedisRepository.findSamples(eq(equipmentCode), eq(sensorType), eq(detectedAt), eq(5), eq(0)))
@@ -116,33 +105,18 @@ class AnomalyDetectionServiceTest {
         );
         when(ruleEngine.evaluate(any(), any(), anyDouble(), anyDouble())).thenReturn(ruleResult);
 
-        // Redis keys for snapshot
-        String redisKey = "sensor:EQP-01:temp_sensor_1:TEMP";
-        when(sensorRedisRepository.findKeys(equipmentCode, sensorType)).thenReturn(List.of(redisKey));
-        when(sensorRedisRepository.findSamplesByKey(redisKey, detectedAt, 5, 0)).thenReturn(fiveMinSamples);
-
-        when(anomalyLogRepository.save(any(AnomalyLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(anomalyRepository.save(any(Anomaly.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // When
-        Optional<AnomalyLog> result = anomalyDetectionService.detect(equipmentCode, sensorType, detectedAt);
+        Optional<Anomaly> result = anomalyDetectionService.detect(equipmentCode, sensorType, detectedAt);
 
         // Then
         assertThat(result).isPresent();
-        AnomalyLog log = result.get();
+        Anomaly log = result.get();
         assertThat(log.getRuleName()).isEqualTo(RuleName.NELSON_RULE_3);
         assertThat(log.getFirstDetectedAt()).isEqualTo(detectedInstant.minusSeconds(60L)); // 1 minute window for Rule 3
         assertThat(log.getSampleCount()).isEqualTo(1); // oneMinuteSamples size
-
-        // Verify Snapshot JSON
-        assertThat(log.getSnapshotData()).isNotNull();
-        List<SensorSnapshotDto> snapshotList = objectMapper.readValue(
-                log.getSnapshotData(),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, SensorSnapshotDto.class)
-        );
-        assertThat(snapshotList).hasSize(1);
-        SensorSnapshotDto snapshotDto = snapshotList.get(0);
-        assertThat(snapshotDto.sensorId()).isEqualTo("temp_sensor_1");
-        assertThat(snapshotDto.sensorType()).isEqualTo("TEMP");
-        assertThat(snapshotDto.values()).hasSize(2);
+        assertThat(log.getMin()).isEqualTo(10.0);
+        assertThat(log.getMax()).isEqualTo(50.0);
     }
 }
