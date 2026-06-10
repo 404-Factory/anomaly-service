@@ -1,10 +1,9 @@
 package com.factory.anomaly.service;
 
-import com.factory.anomaly.infrastructure.entity.AnomalyLog;
-import java.time.LocalDateTime;
+import com.factory.anomaly.event.payload.SensorViolationDto;
+import com.factory.anomaly.infrastructure.entity.Anomaly;
 import java.util.Optional;
 
 public interface AnomalyDetectionService {
-    Optional<AnomalyLog> detect(String equipmentCode, String sensorType);
-    Optional<AnomalyLog> detect(String equipmentCode, String sensorType, LocalDateTime detectedAt);
+    Optional<Anomaly> detect(SensorViolationDto violation);
 }

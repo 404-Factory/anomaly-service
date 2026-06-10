@@ -1,25 +1,14 @@
 package com.factory.anomaly.service;
 
-import com.factory.anomaly.dto.SensorSnapshotDto;
-import com.factory.anomaly.engine.RuleEngine;
-import com.factory.anomaly.engine.RuleResult;
-import com.factory.anomaly.infrastructure.entity.AnomalyLog;
-import com.factory.anomaly.infrastructure.entity.Equipment;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipe;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetail;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetailId;
-import com.factory.anomaly.infrastructure.enums.AnomalyType;
-import com.factory.anomaly.infrastructure.enums.LogType;
-import com.factory.anomaly.infrastructure.enums.RuleName;
-import com.factory.anomaly.infrastructure.enums.Severity;
+import com.factory.anomaly.domain.enums.AnomalyType;
+import com.factory.anomaly.domain.enums.RuleName;
+import com.factory.anomaly.domain.enums.Severity;
+import com.factory.anomaly.event.payload.SensorViolationDto;
+import com.factory.anomaly.infrastructure.entity.Anomaly;
+import com.factory.anomaly.infrastructure.entity.EquipmentProjection;
 import com.factory.anomaly.infrastructure.redis.SensorRedisRepository;
-import com.factory.anomaly.infrastructure.redis.SensorSample;
-import com.factory.anomaly.infrastructure.repository.AnomalyLogRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRecipeDetailRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRecipeRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.factory.anomaly.infrastructure.repository.AnomalyRepository;
+import com.factory.anomaly.infrastructure.repository.EquipmentProjectionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,10 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,111 +32,308 @@ class AnomalyDetectionServiceTest {
     @Mock
     private SensorRedisRepository sensorRedisRepository;
     @Mock
-    private RuleEngine ruleEngine;
+    private AnomalyRepository anomalyRepository;
     @Mock
-    private AnomalyLogRepository anomalyLogRepository;
+    private EquipmentProjectionRepository equipmentProjectionRepository;
     @Mock
-    private EquipmentRepository equipmentRepository;
+    private com.factory.common.kafka.publisher.EventPublisher eventPublisher;
     @Mock
-    private EquipmentRecipeRepository equipmentRecipeRepository;
-    @Mock
-    private EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
-
-    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    private com.factory.common.event.support.DomainEventFactory domainEventFactory;
 
     @BeforeEach
     void setUp() {
         anomalyDetectionService = new AnomalyDetectionServiceImpl(
                 sensorRedisRepository,
-                ruleEngine,
-                anomalyLogRepository,
-                equipmentRepository,
-                equipmentRecipeRepository,
-                equipmentRecipeDetailRepository,
-                mock(com.factory.common.kafka.publisher.EventPublisher.class),
-                mock(com.factory.common.event.support.EventEnvelopeFactory.class),
-                objectMapper
+                anomalyRepository,
+                equipmentProjectionRepository,
+                eventPublisher,
+                domainEventFactory
         );
         ReflectionTestUtils.setField(anomalyDetectionService, "eventPublishEnabled", false);
     }
 
     @Test
-    void testDetectWithNelsonRule3AndSnapshot() throws Exception {
+    void testDetectNewViolation() {
         // Given
-        String equipmentCode = "EQP-01";
+        String equipmentCode = "1";
         String sensorType = "TEMP";
-        LocalDateTime detectedAt = LocalDateTime.of(2026, 6, 9, 20, 0, 0);
-        Instant detectedInstant = detectedAt.toInstant(ZoneOffset.UTC);
+        Instant detectedAt = Instant.parse("2026-06-10T12:00:59Z");
 
-        Equipment equipment = Equipment.builder().id(1L).name(equipmentCode).build();
-        EquipmentRecipe recipe = EquipmentRecipe.builder().id(2L).equipment(equipment).version(1.0).build();
-        EquipmentRecipeDetail detail = EquipmentRecipeDetail.builder()
-                .id(new EquipmentRecipeDetailId(2L, sensorType))
-                .equipmentRecipe(recipe)
-                .min(10.0)
-                .max(50.0)
-                .build();
-
-        when(equipmentRepository.findByName(equipmentCode)).thenReturn(Optional.of(equipment));
-        when(equipmentRecipeRepository.findTopByEquipment_IdOrderByVersionDesc(1L)).thenReturn(Optional.of(recipe));
-        when(equipmentRecipeDetailRepository.findById(any())).thenReturn(Optional.of(detail));
-        when(equipmentRecipeDetailRepository.findByEquipmentRecipe_Id(2L)).thenReturn(List.of(detail));
-
-        // Mock redis samples
-        List<SensorSample> fiveMinSamples = List.of(
-                new SensorSample(OffsetDateTime.of(2026, 6, 9, 19, 58, 0, 0, ZoneOffset.UTC), 12.0),
-                new SensorSample(OffsetDateTime.of(2026, 6, 9, 19, 59, 0, 0, ZoneOffset.UTC), 15.0)
-        );
-        List<SensorSample> oneMinSamples = List.of(
-                new SensorSample(OffsetDateTime.of(2026, 6, 9, 19, 59, 0, 0, ZoneOffset.UTC), 15.0)
-        );
-
-        when(sensorRedisRepository.findSamples(eq(equipmentCode), eq(sensorType), eq(detectedAt), eq(5), eq(0)))
-                .thenReturn(fiveMinSamples);
-        when(sensorRedisRepository.findSamples(eq(equipmentCode), eq(sensorType), eq(detectedAt), eq(1), eq(0)))
-                .thenReturn(oneMinSamples);
-
-        // Rule evaluates to true for NELSON_RULE_3
-        RuleResult ruleResult = new RuleResult(
-                true,
+        SensorViolationDto violation = new SensorViolationDto(
+                equipmentCode,
+                sensorType,
                 RuleName.NELSON_RULE_3,
-                Severity.WARNING,
                 AnomalyType.HIGH,
+                Severity.WARNING,
                 15.0,
                 12.0,
                 3.0,
                 25.0,
+                10.0,
+                50.0,
+                detectedAt,
+                10,
                 "Nelson Rule 3 Violation"
         );
-        when(ruleEngine.evaluate(any(), any(), anyDouble(), anyDouble())).thenReturn(ruleResult);
 
-        // Redis keys for snapshot
-        String redisKey = "sensor:EQP-01:temp_sensor_1:TEMP";
-        when(sensorRedisRepository.findKeys(equipmentCode, sensorType)).thenReturn(List.of(redisKey));
-        when(sensorRedisRepository.findSamplesByKey(redisKey, detectedAt, 5, 0)).thenReturn(fiveMinSamples);
+        // Mock Lock acquisition
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+                .thenReturn(true);
 
-        when(anomalyLogRepository.save(any(AnomalyLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        // Redis cache is empty
+        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH"))
+                .thenReturn(null);
+
+        // EquipmentProjection mock
+        EquipmentProjection equipment = mock(EquipmentProjection.class);
+        when(equipment.getId()).thenReturn(1L);
+        when(equipment.getName()).thenReturn("EQP-01");
+        when(equipmentProjectionRepository.findById(1L)).thenReturn(Optional.of(equipment));
+
+        // Anomaly mock save
+        when(anomalyRepository.save(any(Anomaly.class))).thenAnswer(invocation -> {
+            Anomaly a = invocation.getArgument(0);
+            return Anomaly.builder()
+                    .id(10L)
+                    .name(a.getName())
+                    .equipmentId(a.getEquipmentId())
+                    .recipeParameter(a.getRecipeParameter())
+                    .severity(a.getSeverity())
+                    .lastDetectedAt(a.getLastDetectedAt())
+                    .ruleName(a.getRuleName())
+                    .anomalyType(a.getAnomalyType())
+                    .logType(a.getLogType())
+                    .firstDetectedAt(a.getFirstDetectedAt())
+                    .sampleCount(a.getSampleCount())
+                    .detectionReason(a.getDetectionReason())
+                    .measuredValue(a.getMeasuredValue())
+                    .referenceValue(a.getReferenceValue())
+                    .deviation(a.getDeviation())
+                    .deviationRate(a.getDeviationRate())
+                    .min(a.getMin())
+                    .max(a.getMax())
+                    .build();
+        });
 
         // When
-        Optional<AnomalyLog> result = anomalyDetectionService.detect(equipmentCode, sensorType, detectedAt);
+        Optional<Anomaly> result = anomalyDetectionService.detect(violation);
 
         // Then
         assertThat(result).isPresent();
-        AnomalyLog log = result.get();
+        Anomaly log = result.get();
+        assertThat(log.getId()).isEqualTo(10L);
         assertThat(log.getRuleName()).isEqualTo(RuleName.NELSON_RULE_3);
-        assertThat(log.getFirstDetectedAt()).isEqualTo(detectedInstant.minusSeconds(60L)); // 1 minute window for Rule 3
-        assertThat(log.getSampleCount()).isEqualTo(1); // oneMinuteSamples size
+        assertThat(log.getLastDetectedAt()).isEqualTo(detectedAt);
+        assertThat(log.getSampleCount()).isEqualTo(10);
 
-        // Verify Snapshot JSON
-        assertThat(log.getSnapshotData()).isNotNull();
-        List<SensorSnapshotDto> snapshotList = objectMapper.readValue(
-                log.getSnapshotData(),
-                objectMapper.getTypeFactory().constructCollectionType(List.class, SensorSnapshotDto.class)
+        // Verify set cache was called
+        verify(sensorRedisRepository).setAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH", 10L, 300);
+        // Verify save was called once
+        verify(anomalyRepository, times(1)).save(any(Anomaly.class));
+        // Verify release lock was called
+        verify(sensorRedisRepository).releaseLock(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH");
+    }
+
+    @Test
+    void testDetectDuplicateViolation() {
+        // Given
+        String equipmentCode = "1";
+        String sensorType = "TEMP";
+        Instant detectedAt = Instant.parse("2026-06-10T12:00:59Z");
+
+        SensorViolationDto violation = new SensorViolationDto(
+                equipmentCode,
+                sensorType,
+                RuleName.NELSON_RULE_3,
+                AnomalyType.HIGH,
+                Severity.WARNING,
+                15.0,
+                12.0,
+                3.0,
+                25.0,
+                10.0,
+                50.0,
+                detectedAt,
+                10,
+                "Nelson Rule 3 Violation"
         );
-        assertThat(snapshotList).hasSize(1);
-        SensorSnapshotDto snapshotDto = snapshotList.get(0);
-        assertThat(snapshotDto.sensorId()).isEqualTo("temp_sensor_1");
-        assertThat(snapshotDto.sensorType()).isEqualTo("TEMP");
-        assertThat(snapshotDto.values()).hasSize(2);
+
+        // Mock Lock acquisition
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+                .thenReturn(true);
+
+        // Redis cache has key pointing to anomaly ID 10L
+        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH"))
+                .thenReturn(10L);
+
+        // Mock existing anomaly in DB
+        Anomaly existingAnomaly = Anomaly.builder()
+                .id(10L)
+                .name("Anomaly_EQP-01_TEMP")
+                .equipmentId(1L)
+                .recipeParameter(sensorType)
+                .severity(Severity.CAUTION)
+                .lastDetectedAt(Instant.parse("2026-06-10T12:00:00Z"))
+                .ruleName(RuleName.NELSON_RULE_3)
+                .anomalyType(AnomalyType.HIGH)
+                .logType(com.factory.anomaly.domain.enums.LogType.SENSOR)
+                .firstDetectedAt(Instant.parse("2026-06-10T12:00:00Z"))
+                .sampleCount(5)
+                .build();
+        when(anomalyRepository.findById(10L)).thenReturn(Optional.of(existingAnomaly));
+
+        when(anomalyRepository.save(any(Anomaly.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        Optional<Anomaly> result = anomalyDetectionService.detect(violation);
+
+        // Then
+        assertThat(result).isPresent();
+        Anomaly log = result.get();
+        assertThat(log.getId()).isEqualTo(10L);
+        assertThat(log.getLastDetectedAt()).isEqualTo(detectedAt);
+        assertThat(log.getSampleCount()).isEqualTo(10);
+        assertThat(log.getSeverity()).isEqualTo(Severity.WARNING); // upgraded from CAUTION!
+
+        // Verify save was called with the updated anomaly
+        verify(anomalyRepository, times(1)).save(existingAnomaly);
+        // Verify no new anomaly was created via builder
+        verify(equipmentProjectionRepository, never()).findById(anyLong());
+        verify(sensorRedisRepository, never()).setAnomalyCache(anyString(), anyString(), anyString(), anyString(), anyLong(), anyLong());
+        // Verify release lock was called
+        verify(sensorRedisRepository).releaseLock(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH");
+    }
+
+    @Test
+    void testConcurrentDetect() throws InterruptedException {
+        // Given
+        String equipmentCode = "1";
+        String sensorType = "TEMP";
+        Instant detectedAt = Instant.parse("2026-06-10T12:00:59Z");
+
+        SensorViolationDto violation = new SensorViolationDto(
+                equipmentCode,
+                sensorType,
+                RuleName.NELSON_RULE_3,
+                AnomalyType.HIGH,
+                Severity.WARNING,
+                15.0,
+                12.0,
+                3.0,
+                25.0,
+                10.0,
+                50.0,
+                detectedAt,
+                10,
+                "Nelson Rule 3 Violation"
+        );
+
+        // State variables to track lock status and cached anomaly ID
+        java.util.concurrent.atomic.AtomicBoolean lockAcquired = new java.util.concurrent.atomic.AtomicBoolean(false);
+        java.util.concurrent.atomic.AtomicReference<Long> cacheReference = new java.util.concurrent.atomic.AtomicReference<>(null);
+        java.util.concurrent.atomic.AtomicInteger dbInsertCount = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger dbUpdateCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        // Mock Lock acquisition: only succeed if lock is not currently held
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+                .thenAnswer(invocation -> lockAcquired.compareAndSet(false, true));
+
+        // Mock Lock release
+        doAnswer(invocation -> {
+            lockAcquired.set(false);
+            return null;
+        }).when(sensorRedisRepository).releaseLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"));
+
+        // Mock Cache Read
+        when(sensorRedisRepository.getAnomalyCache(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH")))
+                .thenAnswer(invocation -> cacheReference.get());
+
+        // Mock Cache Write
+        doAnswer(invocation -> {
+            Long id = invocation.getArgument(4);
+            cacheReference.set(id);
+            return null;
+        }).when(sensorRedisRepository).setAnomalyCache(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong(), anyLong());
+
+        // EquipmentProjection mock
+        EquipmentProjection equipment = mock(EquipmentProjection.class);
+        when(equipment.getId()).thenReturn(1L);
+        when(equipment.getName()).thenReturn("EQP-01");
+        when(equipmentProjectionRepository.findById(1L)).thenReturn(Optional.of(equipment));
+
+        // Mock existing anomaly lookup
+        Anomaly existingAnomaly = Anomaly.builder()
+                .id(10L)
+                .name("Anomaly_EQP-01_TEMP")
+                .equipmentId(1L)
+                .recipeParameter(sensorType)
+                .severity(Severity.CAUTION)
+                .lastDetectedAt(Instant.parse("2026-06-10T12:00:00Z"))
+                .ruleName(RuleName.NELSON_RULE_3)
+                .anomalyType(AnomalyType.HIGH)
+                .logType(com.factory.anomaly.domain.enums.LogType.SENSOR)
+                .firstDetectedAt(Instant.parse("2026-06-10T12:00:00Z"))
+                .sampleCount(5)
+                .build();
+        when(anomalyRepository.findById(10L)).thenReturn(Optional.of(existingAnomaly));
+
+        // Mock DB Save: increment counter based on whether ID exists
+        when(anomalyRepository.save(any(Anomaly.class))).thenAnswer(invocation -> {
+            Anomaly a = invocation.getArgument(0);
+            if (a.getId() == null) {
+                dbInsertCount.incrementAndGet();
+                return Anomaly.builder()
+                        .id(10L)
+                        .name(a.getName())
+                        .equipmentId(a.getEquipmentId())
+                        .recipeParameter(a.getRecipeParameter())
+                        .severity(a.getSeverity())
+                        .lastDetectedAt(a.getLastDetectedAt())
+                        .ruleName(a.getRuleName())
+                        .anomalyType(a.getAnomalyType())
+                        .logType(a.getLogType())
+                        .firstDetectedAt(a.getFirstDetectedAt())
+                        .sampleCount(a.getSampleCount())
+                        .detectionReason(a.getDetectionReason())
+                        .build();
+            } else {
+                dbUpdateCount.incrementAndGet();
+                return a;
+            }
+        });
+
+        // Run 4 threads concurrently trying to detect the same violation
+        int numThreads = 4;
+        java.util.concurrent.ExecutorService executorService = java.util.concurrent.Executors.newFixedThreadPool(numThreads);
+        java.util.concurrent.CountDownLatch readyLatch = new java.util.concurrent.CountDownLatch(numThreads);
+        java.util.concurrent.CountDownLatch startLatch = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch doneLatch = new java.util.concurrent.CountDownLatch(numThreads);
+
+        for (int i = 0; i < numThreads; i++) {
+            executorService.submit(() -> {
+                readyLatch.countDown();
+                try {
+                    startLatch.await(); // wait for all threads to start at once
+                    anomalyDetectionService.detect(violation);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        readyLatch.await();
+        startLatch.countDown(); // start all threads concurrently
+        doneLatch.await();
+        executorService.shutdown();
+
+        // Assertions:
+        // 1. Only 1 thread should insert a new Anomaly (dbInsertCount should be 1)
+        assertThat(dbInsertCount.get()).isEqualTo(1);
+        // 2. The other 3 threads should find the cached anomaly and update it (dbUpdateCount should be 3)
+        assertThat(dbUpdateCount.get()).isEqualTo(3);
+        // 3. Cache reference should contain the anomaly ID (10L)
+        assertThat(cacheReference.get()).isEqualTo(10L);
     }
 }

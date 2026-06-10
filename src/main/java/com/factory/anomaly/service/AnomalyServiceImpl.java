@@ -1,124 +1,165 @@
 package com.factory.anomaly.service;
 
-import com.factory.anomaly.dto.response.AnomalyLogDetailResponse;
-import com.factory.anomaly.dto.response.AnomalyLogResponse;
+import com.factory.anomaly.domain.dto.response.AnomalyDetailResponse;
+import com.factory.anomaly.domain.dto.response.AnomalyResponse;
+import com.factory.anomaly.domain.enums.AnalysisStatus;
+import com.factory.anomaly.domain.enums.LogType;
+import com.factory.anomaly.event.payload.producer.AnalysisRequestedPayload;
+import com.factory.anomaly.event.type.AnalysisEventType;
 import com.factory.anomaly.exception.AnomalyErrorCode;
 import com.factory.anomaly.exception.AnomalyException;
-import com.factory.anomaly.infrastructure.client.ChatbotServiceClient;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetail;
-import com.factory.anomaly.infrastructure.entity.EquipmentRecipeDetailId;
-import com.factory.anomaly.infrastructure.repository.AnomalyLogRepository;
-import com.factory.anomaly.infrastructure.repository.DefectRepository;
-import com.factory.anomaly.infrastructure.repository.EquipmentRecipeDetailRepository;
+import com.factory.anomaly.infrastructure.entity.Analysis;
+import com.factory.anomaly.infrastructure.entity.Anomaly;
+import com.factory.anomaly.infrastructure.entity.EquipmentProjection;
+import com.factory.anomaly.infrastructure.repository.AnalysisRepository;
+import com.factory.anomaly.infrastructure.repository.AnomalyRepository;
+import com.factory.anomaly.infrastructure.repository.EquipmentProjectionRepository;
+import com.factory.common.event.support.DomainEventFactory;
+import com.factory.common.kafka.publisher.EventPublisher;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AnomalyServiceImpl implements AnomalyService {
 
-    private final AnomalyLogRepository anomalyLogRepository;
-    private final EquipmentRecipeDetailRepository equipmentRecipeDetailRepository;
-    private final DefectRepository defectRepository;
-    private final ChatbotServiceClient chatbotServiceClient;
+    private final AnomalyRepository anomalyRepository;
+    private final AnalysisRepository analysisRepository;
+    private final EquipmentProjectionRepository equipmentProjectionRepository;
+    private final EventPublisher eventPublisher;
+    private final DomainEventFactory domainEventFactory;
 
     @Override
-    public List<AnomalyLogResponse> getAnomalyLogs(
-            Long processId,
-            Long equipmentId,
-            String keyword
-    ) {
-        String normalizedKeyword = normalizeKeyword(keyword);
+    public Page<AnomalyResponse> getAnomalies(Long processId, Long equipmentId, String keyword,
+        Pageable pageable) {
+        return anomalyRepository.fetchAnomaliesWithCondition(processId, equipmentId, keyword,
+            pageable);
+    }
 
-        return anomalyLogRepository.findAnomalyLogs(processId, equipmentId, normalizedKeyword)
-                .stream()
-                .map(AnomalyLogResponse::from)
-                .toList();
+
+    @Override
+    public AnomalyDetailResponse getAnomaly(Long anomalyId) {
+        anomalyRepository.findById(anomalyId)
+            .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANOMALY_LOG_NOT_FOUND));
+        return anomalyRepository.fetchAnomaly(anomalyId);
     }
 
     @Override
     @Transactional
-    public AnomalyLogDetailResponse getAnomalyLogDetail(Long anomalyId) {
-        var anomalyLog = anomalyLogRepository.findById(anomalyId)
-                .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANOMALY_LOG_NOT_FOUND));
+    public void triggerAnalysis(Long anomalyId) {
+        Anomaly anomaly = anomalyRepository.findById(anomalyId)
+            .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANOMALY_LOG_NOT_FOUND));
 
-        String currentAiAnalysis = anomalyLog.getAiAnalysis();
-        boolean isError = currentAiAnalysis != null && (currentAiAnalysis.startsWith("AI 분석 호출 실패") || currentAiAnalysis.startsWith("AI 분석 리포트 생성 중 예외"));
-        if (currentAiAnalysis == null || currentAiAnalysis.isBlank() || isError) {
-            System.out.println("[DEBUG] aiAnalysis is empty or error. Fetching correlated defects and requesting AI analysis...");
-            try {
-                Long equipmentId = anomalyLog.getEquipment() != null ? anomalyLog.getEquipment().getId() : null;
-                Instant anomalyTime = anomalyLog.getLastDetectedAt();
+        Analysis analysis = analysisRepository.findByAnomalyId(anomalyId)
+            .orElse(null);
 
-                List<ChatbotServiceClient.DefectDto> defectDtos = List.of();
-                if (equipmentId != null && anomalyTime != null) {
-                    Instant endTime = anomalyTime.plus(30, ChronoUnit.MINUTES);
-                    var defects = defectRepository.findCorrelatedDefects(equipmentId, anomalyTime, endTime);
-                    System.out.println("[DEBUG] Found " + defects.size() + " correlated defects");
-                    defectDtos = defects.stream()
-                            .map(d -> ChatbotServiceClient.DefectDto.builder()
-                                    .lotId(d.getLotId())
-                                    .defectType(d.getDefectType())
-                                    .defectCode(d.getDefectCode())
-                                    .occurredTime(d.getOccurredTime())
-                                    .detectedTime(d.getDetectedTime())
-                                    .build())
-                            .collect(Collectors.toList());
-                }
+        if (analysis == null) {
+            analysisRepository.save(Analysis.builder()
+                .anomalyId(anomalyId)
+                .status(AnalysisStatus.RUNNING)
+                .summary(null)
+                .build());
+        } else {
+            analysis.update(AnalysisStatus.RUNNING, null);
+            analysisRepository.save(analysis);
+        }
 
-                ChatbotServiceClient.AnomalyAnalysisRequest analysisRequest = ChatbotServiceClient.AnomalyAnalysisRequest.builder()
-                        .equipmentName(anomalyLog.getEquipment() != null ? anomalyLog.getEquipment().getName() : "N/A")
-                        .recipeParameter(anomalyLog.getRecipeParameter())
-                        .ruleName(anomalyLog.getRuleName() != null ? anomalyLog.getRuleName().name() : "N/A")
-                        .anomalyType(anomalyLog.getAnomalyType() != null ? anomalyLog.getAnomalyType().name() : "N/A")
-                        .detectionReason(anomalyLog.getDetectionReason())
-                        .occurredTime(anomalyTime)
-                        .defects(defectDtos)
-                        .build();
+        AnalysisRequestedPayload payload = buildAnalysisPayload(anomaly);
 
-                String aiResult = chatbotServiceClient.getAnomalyAnalysis(analysisRequest);
-                anomalyLog.setAiAnalysis(aiResult);
+        eventPublisher.publish(
+            domainEventFactory.create(AnalysisEventType.ANALYSIS_REQUESTED, "Analysis",
+                String.valueOf(anomaly.getId()), payload));
+    }
 
-                boolean newResultIsError = aiResult != null && (aiResult.startsWith("AI 분석 호출 실패") || aiResult.startsWith("AI 분석 리포트 생성 중 예외"));
-                if (!newResultIsError) {
-                    anomalyLogRepository.save(anomalyLog);
-                    System.out.println("[DEBUG] AI Analysis generated and saved successfully.");
-                } else {
-                    System.out.println("[WARN] AI Analysis generation failed, not saving to DB: " + aiResult);
-                }
-            } catch (Exception e) {
-                System.err.println("[ERROR] Failed during AI Anomaly Analysis generation: " + e.getMessage());
-                e.printStackTrace();
+    private AnalysisRequestedPayload buildAnalysisPayload(Anomaly anomaly) {
+        EquipmentProjection equipment = equipmentProjectionRepository.findById(anomaly.getEquipmentId())
+                .orElse(null);
+        String equipmentName = equipment != null ? equipment.getName() : "알 수 없는 설비";
+
+        List<Anomaly> relatedLogs = List.of();
+        if (anomaly.getRelatedLogIds() != null && !anomaly.getRelatedLogIds().isBlank()) {
+            List<Long> relatedIds = Arrays.stream(anomaly.getRelatedLogIds().split(","))
+                    .map(String::trim)
+                    .filter(value -> !value.isBlank())
+                    .map(Long::valueOf)
+                    .toList();
+            if (!relatedIds.isEmpty()) {
+                relatedLogs = anomalyRepository.findAllById(relatedIds)
+                        .stream()
+                        .sorted(Comparator.comparing(Anomaly::getLastDetectedAt))
+                        .toList();
             }
         }
 
-        EquipmentRecipeDetail recipeDetail = null;
-
-        if (anomalyLog.getEquipmentRecipe() != null && anomalyLog.getRecipeParameter() != null) {
-            recipeDetail = equipmentRecipeDetailRepository
-                    .findById(new EquipmentRecipeDetailId(
-                            anomalyLog.getEquipmentRecipe().getId(),
-                            anomalyLog.getRecipeParameter()
-                    ))
-                    .orElse(null);
+        String summaryText;
+        if (anomaly.getLogType() == LogType.COMPOSITE) {
+            summaryText = String.format(
+                    "%s 설비에서 %d개의 관련 센서 이상이 함께 감지되어 %s 수준의 복합 이상으로 분류되었습니다.",
+                    equipmentName,
+                    relatedLogs.size(),
+                    anomaly.getSeverity()
+            );
+        } else if (anomaly.getMeasuredValue() != null && anomaly.getReferenceValue() != null) {
+            summaryText = String.format(
+                    "%s 설비의 %s 값이 %s에 기준값 %.3f 대비 %.3f으로 측정되어 %s 이상으로 분류되었습니다.",
+                    equipmentName,
+                    anomaly.getRecipeParameter(),
+                    anomaly.getLastDetectedAt(),
+                    anomaly.getReferenceValue(),
+                    anomaly.getMeasuredValue(),
+                    anomaly.getSeverity()
+            );
+        } else {
+            summaryText = String.format(
+                    "%s 설비의 %s 항목에서 %s 룰에 의해 %s 이상이 감지되었습니다.",
+                    equipmentName,
+                    anomaly.getRecipeParameter(),
+                    anomaly.getRuleName(),
+                    anomaly.getSeverity()
+            );
         }
 
-        return AnomalyLogDetailResponse.of(anomalyLog, recipeDetail);
-    }
+        String recommendedAnalysisType = anomaly.getLogType() == LogType.COMPOSITE
+                ? "MULTI_SENSOR_COMPOSITE_CONTEXT"
+                : "RULE_VIOLATION_WITH_RECIPE_CONTEXT";
 
-    private String normalizeKeyword(String keyword) {
-        if (keyword == null || keyword.isBlank()) {
-            return null;
+        List<String> analysisFocus;
+        if (anomaly.getLogType() == LogType.COMPOSITE) {
+            analysisFocus = List.of(
+                    "복수 센서 이상 간 시간적 연관성",
+                    "동일 설비 내 반복 이상 여부",
+                    "현재 적용 레시피와 센서 기준값의 적합성",
+                    "불량 정보와의 연관 가능성"
+            );
+        } else {
+            analysisFocus = List.of(
+                    "레시피 기준값 초과 여부",
+                    "측정값과 기준값의 편차",
+                    "동일 설비의 최근 반복 이상 여부",
+                    "관련 센서의 동시 이상 여부"
+            );
         }
 
-        return keyword.trim();
+        String llmPromptHint = anomaly.getLogType() == LogType.COMPOSITE
+                ? "관련 센서 로그들을 함께 비교해 공정 조건 불안정 가능성, 레시피 점검 필요성, 권장 조치를 설명하세요."
+                : "레시피 기준값, 측정값 편차, 감지 룰, 최근 관련 이상 로그를 함께 고려해 원인 가능성과 권장 조치를 설명하세요.";
+
+        return AnalysisRequestedPayload.builder()
+                .anomalyId(anomaly.getId())
+                .equipmentId(anomaly.getEquipmentId())
+                .recipeParameter(anomaly.getRecipeParameter())
+                .summaryText(summaryText)
+                .recommendedAnalysisType(recommendedAnalysisType)
+                .analysisFocus(analysisFocus)
+                .llmPromptHint(llmPromptHint)
+                .build();
     }
 }
 
