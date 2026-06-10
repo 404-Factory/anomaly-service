@@ -1,9 +1,6 @@
 package com.factory.anomaly.domain.dto.response;
 
 import com.factory.anomaly.domain.enums.Severity;
-import com.factory.common.inbox.jpa.autoconfigure.InboxJpaAutoConfiguration;
-import com.factory.common.kafka.consumer.CommonKafkaConsumer;
-import com.factory.common.kafka.support.EventDispatcher;
 import java.time.Instant;
 import lombok.Getter;
 
@@ -14,9 +11,7 @@ public class AnomalyDetailResponse {
     private String name;
     private String severity;
     private String statusLabel;
-    private Long processId;
     private String processName;
-    private Long equipmentId;
     private String equipmentName;
     private String recipeParameter;
     private String ruleName;
@@ -36,19 +31,17 @@ public class AnomalyDetailResponse {
     private String summary;
 
 
-    public AnomalyDetailResponse(Long id, String name, Severity severity,
-        Long processId, String processName, Long equipmentId, String equipmentName,
-        String recipeParameter, String ruleName, String anomalyType, Integer sampleCount,
-        String relatedLogIds, Double minValue, Double maxValue, Double measuredValue,
-        Double referenceValue, Double deviation, Double deviationRate, String detectionReason,
-        Instant firstDetectedAt, Instant lastDetectedAt, String analysisStatus, String summary) {
+    public AnomalyDetailResponse(Long id, String name, Severity severity, String processName,
+        String equipmentName, String recipeParameter, String ruleName, String anomalyType,
+        Integer sampleCount, String relatedLogIds, Double minValue, Double maxValue,
+        Double measuredValue, Double referenceValue, Double deviation, Double deviationRate,
+        String detectionReason, Instant firstDetectedAt, Instant lastDetectedAt,
+        String analysisStatus, String summary) {
         this.id = id;
         this.name = name;
         this.severity = severity.name();
         this.statusLabel = severity.getLabel();
-        this.processId = processId;
         this.processName = processName;
-        this.equipmentId = equipmentId;
         this.equipmentName = equipmentName;
         this.recipeParameter = recipeParameter;
         this.ruleName = ruleName;

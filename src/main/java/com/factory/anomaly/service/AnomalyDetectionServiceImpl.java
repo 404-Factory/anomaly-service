@@ -1,5 +1,6 @@
 package com.factory.anomaly.service;
 
+import com.factory.anomaly.infrastructure.entity.Anomaly;
 import org.springframework.beans.factory.annotation.Value;
 import com.factory.anomaly.engine.RuleEngine;
 import com.factory.anomaly.engine.RuleResult;
@@ -48,7 +49,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
     private boolean eventPublishEnabled;
 
     @Override
-    public Optional<AnomalyLog> detect(String equipmentCode, String sensorType) {
+    public Optional<Anomaly> detect(String equipmentCode, String sensorType) {
         return detect(equipmentCode, sensorType, LocalDateTime.now());
     }
 
@@ -57,7 +58,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
     // param 별로 latestTimestamp 줄 거니까, detect 해주세요
     /// 왜 Optional<AnomalyLog>를 리턴해? 쓰지도 않는데?
     @Override
-    public Optional<AnomalyLog> detect(
+    public Optional<Anomaly> detect(
             String equipmentCode,
             String sensorType,
             LocalDateTime detectedAt

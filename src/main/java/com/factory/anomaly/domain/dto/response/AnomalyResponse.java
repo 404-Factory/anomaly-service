@@ -12,9 +12,7 @@ public class AnomalyResponse {
     private String logType;
     private String severity;
     private String statusLabel;
-    private Long processId;
     private String processName;
-    private Long equipmentId;
     private String equipmentName;
     private String recipeParameter;
     private String ruleName;
@@ -25,17 +23,14 @@ public class AnomalyResponse {
 
 
     public AnomalyResponse(Long id, String name, String logType, Severity severity,
-        Long processId, String processName, Long equipmentId, String equipmentName,
-        String recipeParameter, String ruleName, String anomalyType,
-        Instant occurredTime, String detectionReason, String relatedLogIds) {
+        String processName, String equipmentName, String recipeParameter, String ruleName,
+        String anomalyType, Instant occurredTime, String detectionReason, String relatedLogIds) {
         this.id = id;
         this.name = name;
         this.logType = logType;
         this.severity = severity.name();
         this.statusLabel = severity.getLabel();
-        this.processId = processId;
         this.processName = processName;
-        this.equipmentId = equipmentId;
         this.equipmentName = equipmentName;
         this.recipeParameter = recipeParameter;
         this.ruleName = ruleName;

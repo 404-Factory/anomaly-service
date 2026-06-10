@@ -33,8 +33,8 @@ public class SensorDataConsumer {
     private final AnomalyDetectionService anomalyDetectionService;
 
     @KafkaListener(
-            topics = "${app.kafka.consumer.sensor-topic:fab-semiconductor-001}",
-            groupId = "${spring.kafka.consumer.group-id:anomaly-consumer-group}"
+        topics = "${app.kafka.consumer.sensor-topic:fab-semiconductor-001}",
+        groupId = "${spring.kafka.consumer.group-id:anomaly-consumer-group}"
     )
     // equipment별 batch 하나를 보고 있음
     // 아마 equipment가 key가 될 거거든
@@ -45,7 +45,8 @@ public class SensorDataConsumer {
             SensorDataBatchDto batch = objectMapper.readValue(message, SensorDataBatchDto.class);
             // 측정 정보가 없어 -> 끝
             if (batch.measurements() == null || batch.measurements().isEmpty()) {
-                log.warn("Received empty or invalid measurements in batch. batchId={}", batch.batchId());
+                log.warn("Received empty or invalid measurements in batch. batchId={}",
+                    batch.batchId());
                 return;
             }
 
@@ -65,7 +66,8 @@ public class SensorDataConsumer {
                     try {
                         /// 1781008800.123 형태 -> 왜? 그냥 EpochMilli만 쓰지?
                         // 근데 일단 중요하진 않음 그냥 따라
-                        score = OffsetDateTime.parse(measuredAt).toInstant().toEpochMilli() / 1000.0;
+                        score =
+                            OffsetDateTime.parse(measuredAt).toInstant().toEpochMilli() / 1000.0;
                     } catch (Exception e) {
                         log.error("Failed to parse measuredAt: {}", measuredAt, e);
                         continue;
@@ -87,14 +89,16 @@ public class SensorDataConsumer {
                     /// 애초에 device에서 넘어올 때, equipment PK, sensor PK가 같이 와야하는 거 같은데
                     for (SensorReadingDto sensor : measurement.sensors()) {
                         String key = String.format("sensor:%s:%s:%s",
-                                batch.equipmentId(),
-                                sensor.sensorId(),
-                                sensor.sensorType()
+                            batch.equipmentId(),
+                            sensor.sensorId(),
+                            sensor.sensorType()
                         );
 
                         Map<String, Object> valueMap = Map.of(
-                                "ts", measuredAt,
-                                "value", sensor.value()
+                            "min", sensor.recipeMin(),
+                            "max", sensor.recipeMax(),
+                            "value", sensor.value(),
+                            "ts", measuredAt
                         );
 
                         String jsonValue;
@@ -110,7 +114,8 @@ public class SensorDataConsumer {
                         byte[] rawValue = jsonValue.getBytes(StandardCharsets.UTF_8);
 
                         connection.zSetCommands().zAdd(rawKey, score, rawValue);
-                        connection.zSetCommands().zRemRangeByScore(rawKey, Double.NEGATIVE_INFINITY, cutoff);
+                        connection.zSetCommands()
+                            .zRemRangeByScore(rawKey, Double.NEGATIVE_INFINITY, cutoff);
                         connection.keyCommands().expire(rawKey, REDIS_WINDOW_SEC + 60);
                     }
                 }
@@ -118,7 +123,7 @@ public class SensorDataConsumer {
             });
 
             log.info("Successfully stored batch measurements to Redis. batchId={}, equipmentId={}",
-                    batch.batchId(), batch.equipmentId());
+                batch.batchId(), batch.equipmentId());
 
             // 2. Trigger anomaly detection for each unique sensor type with the latest timestamp
             // param별 최신 시간을 가진 Map 생성
@@ -129,17 +134,21 @@ public class SensorDataConsumer {
                 String sensorType = entry.getKey();
                 /// 꼭 LocalDateTime이 필요한가?
                 // 그래도 굴러가 냅둬
-                LocalDateTime detectedAtLocal = entry.getValue().toLocalDateTime(); // standard JVM time is UTC
-                log.info("Triggering real-time anomaly detection. equipmentId={}, sensorType={}, detectedAt={}",
-                        batch.equipmentId(), sensorType, detectedAtLocal);
+                LocalDateTime detectedAtLocal = entry.getValue()
+                    .toLocalDateTime(); // standard JVM time is UTC
+                log.info(
+                    "Triggering real-time anomaly detection. equipmentId={}, sensorType={}, detectedAt={}",
+                    batch.equipmentId(), sensorType, detectedAtLocal);
                 try {
                     // 이후 AnomalyDetectionService에 위임
                     // 즉, param 별로 latest timestamp 출 거니까, detect 해주세요
                     // 일단 저 arguments 들이 어떻게 쓰이는지는 들어가서 보자
-                    anomalyDetectionService.detect(batch.equipmentId(), sensorType, detectedAtLocal);
+                    anomalyDetectionService.detect(batch.equipmentId(), sensorType,
+                        detectedAtLocal);
                 } catch (Exception e) {
-                    log.error("Failed to run real-time anomaly detection for equipmentId={}, sensorType={}",
-                            batch.equipmentId(), sensorType, e);
+                    log.error(
+                        "Failed to run real-time anomaly detection for equipmentId={}, sensorType={}",
+                        batch.equipmentId(), sensorType, e);
                 }
             }
 

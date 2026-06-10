@@ -25,7 +25,7 @@ public class EquipmentProjection {
     @Column(name = "process_id")
     private Long processId;
 
-    @Column(name = "process_name")
+    @Column(name = "process_name", nullable = false)
     private String processName;
 
     @LastModifiedDate

@@ -36,25 +36,18 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
                 anomaly.name,
                 anomaly.logType.stringValue(),
                 anomaly.severity,
-
-                equipmentProjection.processId,
                 equipmentProjection.processName,
-
-                anomaly.equipmentId,
                 equipmentProjection.name,
-
                 anomaly.recipeParameter,
-
                 anomaly.ruleName.stringValue(),
                 anomaly.anomalyType.stringValue(),
-
                 anomaly.lastDetectedAt,
                 anomaly.detectionReason,
                 anomaly.relatedLogIds
             ))
             .from(anomaly)
             .leftJoin(equipmentProjection)
-            .on(equipmentProjection.id.eq(anomaly.equipmentId.longValue())) // 중요
+            .on(equipmentProjection.id.eq(anomaly.equipmentId.longValue()))
             .where(
                 processIdEq(processId),
                 equipmentIdEq(equipmentId),
@@ -88,9 +81,7 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
                 anomaly.id,
                 anomaly.name,
                 anomaly.severity,
-                equipmentProjection.processId,
                 equipmentProjection.processName,
-                equipmentProjection.id,
                 equipmentProjection.name,
                 anomaly.recipeParameter,
                 anomaly.ruleName.stringValue(),
