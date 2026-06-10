@@ -29,4 +29,15 @@ public class SensorRedisRepository {
         String cacheKey = String.format("anomaly:cache:%s:%s:%s", equipmentCode, sensorType, ruleName);
         redisTemplate.opsForValue().set(cacheKey, String.valueOf(anomalyId), Duration.ofSeconds(ttlSeconds));
     }
+
+    public boolean acquireLock(String equipmentCode, String sensorType, String ruleName, long expireSeconds) {
+        String lockKey = String.format("anomaly:lock:%s:%s:%s", equipmentCode, sensorType, ruleName);
+        Boolean success = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(expireSeconds));
+        return success != null && success;
+    }
+
+    public void releaseLock(String equipmentCode, String sensorType, String ruleName) {
+        String lockKey = String.format("anomaly:lock:%s:%s:%s", equipmentCode, sensorType, ruleName);
+        redisTemplate.delete(lockKey);
+    }
 }
