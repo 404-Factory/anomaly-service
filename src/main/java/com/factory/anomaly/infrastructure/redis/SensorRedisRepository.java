@@ -122,4 +122,24 @@ public class SensorRedisRepository {
     private double toEpochSecond(LocalDateTime dateTime) {
         return dateTime.atZone(ZoneId.of(timeZone)).toEpochSecond();
     }
+
+    public Long getAnomalyCache(String equipmentCode, String sensorType, String ruleName) {
+        String cacheKey = String.format("anomaly:cache:%s:%s:%s", equipmentCode, sensorType, ruleName);
+        String val = redisTemplate.opsForValue().get(cacheKey);
+        if (val != null) {
+            try {
+                return Long.parseLong(val);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    public void setAnomalyCache(String equipmentCode, String sensorType, String ruleName, Long anomalyId, long ttlSeconds) {
+        String cacheKey = String.format("anomaly:cache:%s:%s:%s", equipmentCode, sensorType, ruleName);
+        redisTemplate.opsForValue().set(cacheKey, String.valueOf(anomalyId), java.time.Duration.ofSeconds(ttlSeconds));
+    }
 }
+
+

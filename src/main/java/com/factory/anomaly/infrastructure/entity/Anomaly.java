@@ -88,4 +88,10 @@ public class Anomaly {
 
     @Column(name = "detection_reason", columnDefinition = "TEXT")
     private String detectionReason;
+
+    public void update(Instant lastDetectedAt, Integer sampleCount) {
+        this.lastDetectedAt = lastDetectedAt;
+        this.sampleCount = sampleCount;
+    }
 }
+

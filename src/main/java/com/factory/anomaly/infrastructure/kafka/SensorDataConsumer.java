@@ -32,10 +32,11 @@ public class SensorDataConsumer {
     private final StringRedisTemplate redisTemplate;
     private final AnomalyDetectionService anomalyDetectionService;
 
-    @KafkaListener(
-        topics = "${app.kafka.consumer.sensor-topic:fab-semiconductor-001}",
-        groupId = "${spring.kafka.consumer.group-id:anomaly-consumer-group}"
-    )
+    // @KafkaListener(
+    //     topics = "${app.kafka.consumer.sensor-topic:fab-semiconductor-001}",
+    //     groupId = "${spring.kafka.consumer.group-id:anomaly-consumer-group}"
+    // )
+
     // equipment별 batch 하나를 보고 있음
     // 아마 equipment가 key가 될 거거든
     public void consume(String message) {
