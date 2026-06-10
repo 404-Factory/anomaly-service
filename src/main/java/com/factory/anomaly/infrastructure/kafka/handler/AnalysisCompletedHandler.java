@@ -3,7 +3,6 @@ package com.factory.anomaly.infrastructure.kafka.handler;
 import com.factory.anomaly.event.payload.consumer.AnalysisCompletedPayload;
 import com.factory.anomaly.event.type.AnalysisEventType;
 import com.factory.anomaly.service.AnalysisService;
-import com.factory.anomaly.service.AnalysisSseService;
 import com.factory.common.event.domain.Event;
 import com.factory.common.inbox.jpa.aop.InboxProcessed;
 import com.factory.common.kafka.support.EventHandler;
@@ -15,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AnalysisCompletedHandler implements EventHandler<AnalysisCompletedPayload> {
 
-    private final AnalysisSseService analysisSseService;
     private final AnalysisService analysisService;
 
     @Override
@@ -32,6 +30,5 @@ public class AnalysisCompletedHandler implements EventHandler<AnalysisCompletedP
         String status = payload.getStatus();
         String summary = payload.getSummary();
         analysisService.updateAnalysis(anomalyId, status, summary);
-        analysisSseService.send(anomalyId, payload);
     }
 }
