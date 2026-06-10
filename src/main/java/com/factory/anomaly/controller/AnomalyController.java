@@ -20,7 +20,7 @@ public class AnomalyController {
 
     @GetMapping
     public Page<AnomalyResponse> getAnomalies(@ModelAttribute AnomalySearchCondition condition,
-        @PageableDefault(sort = "") Pageable pageable) {
+        @PageableDefault Pageable pageable) {
         Long processId = condition.getProcessId();
         Long equipmentId = condition.getEquipmentId();
         String keyword = condition.getKeyword();
