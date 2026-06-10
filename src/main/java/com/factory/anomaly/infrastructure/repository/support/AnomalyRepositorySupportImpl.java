@@ -97,7 +97,7 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
                 anomaly.detectionReason,
                 anomaly.firstDetectedAt,
                 anomaly.lastDetectedAt,
-                analysis.status,
+                analysis.status.stringValue(),
                 analysis.summary
             ))
             .from(anomaly)
