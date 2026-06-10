@@ -37,8 +37,8 @@ spec:
     transforms.outbox.table.field.event.key: "aggregate_id"
     transforms.outbox.table.field.event.payload: "payload"
     transforms.outbox.table.fields.additional.placement: "event_type:header:eventType"
-    transforms.outbox.route.by.field: aggregate_type
-    transforms.outbox.route.topic.replacement: outbox.event.anomaly.${routedByValue}
+    transforms.outbox.route.by.field: event_type
+    transforms.outbox.route.topic.replacement: anomaly.${routedByValue}
 
     key.converter.schemas.enable: "false"
     value.converter.schemas.enable: "false"
