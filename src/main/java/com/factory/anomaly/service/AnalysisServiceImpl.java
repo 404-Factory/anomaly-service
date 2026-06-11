@@ -18,6 +18,18 @@ public class AnalysisServiceImpl implements AnalysisService {
     public void updateAnalysis(Long anomalyId, String status, String summary) {
         Analysis analysis = analysisRepository.findByAnomalyId(anomalyId)
             .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANALYSIS_NOT_FOUND));
-        analysis.update(AnalysisStatus.valueOf(status.toUpperCase()), summary);
+        AnalysisStatus analysisStatus;
+        if ("SUCCESS".equalsIgnoreCase(status)) {
+            analysisStatus = AnalysisStatus.COMPLETED;
+        } else if ("FAILURE".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status)) {
+            analysisStatus = AnalysisStatus.FAILED;
+        } else {
+            try {
+                analysisStatus = AnalysisStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                analysisStatus = AnalysisStatus.FAILED;
+            }
+        }
+        analysis.update(analysisStatus, summary);
     }
 }
