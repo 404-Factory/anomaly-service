@@ -20,7 +20,7 @@ spec:
     database.include.list: anomaly_db
     table.include.list: anomaly_db.outbox
 
-    snapshot.mode: "initial"
+    snapshot.mode: "when_needed"
     snapshot.fetch.size: "100"
     snapshot.max.threads: "1"
     snapshot.min.row.count.to.stream.results: "1"
@@ -30,15 +30,20 @@ spec:
     schema.history.internal.store.only.captured.tables.ddl: "true"
     schema.history.internal.skip.unparseable.ddl: "true"
 
-    transforms: outbox
+    transforms: outbox,insertField
     transforms.outbox.type: io.debezium.transforms.outbox.EventRouter
     transforms.outbox.table.op.invalid.behavior: "fatal"
     transforms.outbox.table.field.event.id: "id"
     transforms.outbox.table.field.event.key: "aggregate_id"
     transforms.outbox.table.field.event.payload: "payload"
-    transforms.outbox.table.fields.additional.placement: "event_type:header:eventType"
+    transforms.outbox.table.fields.additional.placement: "event_type:envelope:eventType,id:envelope:idempotencyKey,aggregate_type:envelope:aggregateType,aggregate_id:envelope:aggregateId,trace_id:envelope:traceId,timestamp:envelope:timestamp"
+    transforms.outbox.table.expand.json.payload: "true"
     transforms.outbox.route.by.field: event_type
     transforms.outbox.route.topic.replacement: anomaly.${routedByValue}
+
+    transforms.insertField.type: "org.apache.kafka.connect.transforms.InsertField$Value"
+    transforms.insertField.static.field: "envelopeType"
+    transforms.insertField.static.value: "domain"
 
     key.converter.schemas.enable: "false"
     value.converter.schemas.enable: "false"

@@ -7,13 +7,26 @@ version = "1.0.0"
 
 dependencies {
 	// common modules
-	implementation "com.factory.common:contract:1.0.5"
+	implementation "com.factory.common:contract:1.0.7"
+	implementation "com.factory.common:kafka:1.0.7"
+	implementation "com.factory.common:inbox-jpa:1.0.7"
+	implementation "com.factory.common:outbox-jpa:1.0.7"
+
+	// platform BOM
+	implementation platform("com.factory:platform:1.0.5")
+	annotationProcessor platform("com.factory:platform:1.0.5")
 
 	// Spring Web
 	implementation "org.springframework.boot:spring-boot-starter-web"
 
 	// Spring Data JPA
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+	// Spring Kafka
+	implementation 'org.springframework.kafka:spring-kafka'
+
+	// Spring AOP (for outbox)
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
 
 	// Spring Boot Actuator
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
