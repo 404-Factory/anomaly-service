@@ -7,10 +7,9 @@ import com.factory.anomaly_service.domain.type.Severity;
 import com.factory.anomaly_service.kafka.dto.AnomalyCreatedPayload;
 import com.factory.anomaly_service.kafka.dto.SensorViolationPayload;
 import com.factory.anomaly_service.repository.AnomalyLogRepository;
-import com.factory.common.event.domain.DomainEvent;
+import com.factory.common.event.support.DomainEventFactory;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -24,6 +23,7 @@ public class AnomalyLogCreateService {
 
     private final AnomalyLogRepository anomalyLogRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final DomainEventFactory domainEventFactory;
 
     @Transactional
     public void create(SensorViolationPayload payload) {
@@ -54,13 +54,11 @@ public class AnomalyLogCreateService {
             .build();
 
         eventPublisher.publishEvent(
-            DomainEvent.of(
-                UUID.randomUUID().toString(),
+            domainEventFactory.create(
                 () -> "AnomalyCreated",
                 "AnomalyLog",
                 saved.getLogId().toString(),
-                eventPayload,
-                null
+                eventPayload
             )
         );
     }

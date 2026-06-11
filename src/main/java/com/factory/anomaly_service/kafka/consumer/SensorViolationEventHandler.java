@@ -26,11 +26,6 @@ public class SensorViolationEventHandler implements EventHandler<SensorViolation
     @Transactional
     @InboxProcessed
     public void process(Event<SensorViolationPayload> event) {
-        try {
-            anomalyLogCreateService.create(event.getPayload());
-        } catch (Exception e) {
-            log.error("DIAG: handler failed", e);
-            throw e;
-        }
+        anomalyLogCreateService.create(event.getPayload());
     }
 }
