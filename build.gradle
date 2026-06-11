@@ -5,6 +5,10 @@ plugins {
 
 version = "1.0.0"
 
+repositories {
+	mavenLocal()
+}
+
 dependencies {
 	// common modules
 	implementation "com.factory.common:contract:1.0.7"
