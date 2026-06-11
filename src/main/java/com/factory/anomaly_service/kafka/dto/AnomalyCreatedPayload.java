@@ -13,8 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AnomalyCreatedPayload implements EventPayload {
     private Long anomalyLogId;
-    private Long equipmentId;
-    private String equipmentName;
+    private String equipmentId;
     private Long equipmentRecipeId;
     private String recipeParameter;
     private String severity;
