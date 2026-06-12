@@ -4,14 +4,19 @@ import com.factory.anomaly.domain.enums.AnomalyType;
 import com.factory.anomaly.domain.enums.RuleName;
 import com.factory.anomaly.domain.enums.Severity;
 import com.factory.anomaly.event.payload.SensorViolationDto;
+import com.factory.anomaly.event.payload.producer.AnomalyCreatedPayload;
+import com.factory.anomaly.event.type.AnomalyEventType;
 import com.factory.anomaly.infrastructure.entity.Anomaly;
 import com.factory.anomaly.infrastructure.entity.EquipmentProjection;
 import com.factory.anomaly.infrastructure.redis.SensorRedisRepository;
 import com.factory.anomaly.infrastructure.repository.AnomalyRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentProjectionRepository;
+import com.factory.common.event.domain.DomainEvent;
+import com.factory.common.event.domain.Event;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -21,6 +26,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -335,5 +342,64 @@ class AnomalyDetectionServiceTest {
         assertThat(dbUpdateCount.get()).isEqualTo(3);
         // 3. Cache reference should contain the anomaly ID (10L)
         assertThat(cacheReference.get()).isEqualTo(10L);
+    }
+
+    @Test
+    void testDetectPublishesOutboxEvent() {
+        // Given
+        ReflectionTestUtils.setField(anomalyDetectionService, "eventPublishEnabled", true);
+
+        String equipmentCode = "1";
+        String sensorType = "TEMP";
+        Instant detectedAt = Instant.parse("2026-06-10T12:00:59Z");
+
+        SensorViolationDto violation = new SensorViolationDto(
+                equipmentCode, sensorType, RuleName.NELSON_RULE_3, AnomalyType.HIGH, Severity.WARNING,
+                15.0, 12.0, 3.0, 25.0, 10.0, 50.0, detectedAt, 10, "Nelson Rule 3 Violation"
+        );
+
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+                .thenReturn(true);
+        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorType, "NELSON_RULE_3", "HIGH"))
+                .thenReturn(null);
+
+        EquipmentProjection equipment = mock(EquipmentProjection.class);
+        when(equipment.getId()).thenReturn(1L);
+        when(equipment.getName()).thenReturn("EQP-01");
+        when(equipmentProjectionRepository.findById(1L)).thenReturn(Optional.of(equipment));
+
+        when(anomalyRepository.save(any(Anomaly.class))).thenAnswer(invocation -> {
+            Anomaly a = invocation.getArgument(0);
+            return Anomaly.builder().id(10L).name(a.getName()).equipmentId(a.getEquipmentId())
+                    .recipeParameter(a.getRecipeParameter()).severity(a.getSeverity())
+                    .lastDetectedAt(a.getLastDetectedAt()).ruleName(a.getRuleName())
+                    .anomalyType(a.getAnomalyType()).logType(a.getLogType())
+                    .firstDetectedAt(a.getFirstDetectedAt()).sampleCount(a.getSampleCount())
+                    .detectionReason(a.getDetectionReason()).build();
+        });
+
+        when(domainEventFactory.create(any(), eq("Anomaly"), anyString(), any()))
+                .thenAnswer(invocation -> {
+                    AnomalyCreatedPayload p = invocation.getArgument(3);
+                    return DomainEvent.of("test-key", AnomalyEventType.ANOMALY_CREATED, "Anomaly", "10", p, "trace-id");
+                });
+
+        // When
+        anomalyDetectionService.detect(violation);
+
+        // Then
+        ArgumentCaptor<Event<?>> eventCaptor = ArgumentCaptor.forClass(Event.class);
+        verify(eventPublisher).publish(eventCaptor.capture());
+
+        Event<?> capturedEvent = eventCaptor.getValue();
+        assertThat(capturedEvent.getEventType()).isEqualTo("AnomalyCreated");
+
+        AnomalyCreatedPayload payload = (AnomalyCreatedPayload) capturedEvent.getPayload();
+        assertThat(payload.getEquipmentId()).isEqualTo(1L);
+        assertThat(payload.getEquipmentName()).isEqualTo("EQP-01");
+        assertThat(payload.getRecipeParameter()).isEqualTo("TEMP");
+        assertThat(payload.getSeverity()).isEqualTo("WARNING");
+        assertThat(payload.getCauseRule()).isEqualTo("NELSON_RULE_3");
+        assertThat(payload.getOccurredTime()).isEqualTo(detectedAt);
     }
 }
