@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: anomaly-service
+  namespace: anomaly
+  labels:
+    app: anomaly-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: anomaly-service
+  template:
+    metadata:
+      labels:
+        app: anomaly-service
+    spec:
+      containers:
+        - name: anomaly-service
+          image: $IMAGE:$IMAGE_TAG
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: rdb-secret
+            - secretRef:
+                name: redis-secret
+          env:
+            - name: DB_NAME
+              value: "factory_db"
+            - name: DB_PORT
+              value: "3306"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_SSL
+              value: "true"
+            - name: DB_MAX_POOL_SIZE
+              value: "5"
+            - name: DB_MIN_IDLE
+              value: "2"
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+      restartPolicy: Always
