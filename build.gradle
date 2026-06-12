@@ -1,6 +1,7 @@
 plugins {
 	id "com.factory.spring-application-conventions"
 	id "com.factory.maven-consumer-conventions"
+	id "jacoco"
 }
 
 version = "1.0.0"
@@ -71,5 +72,24 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true
+		html.required = true
+	}
+}
+
+jacocoTestCoverageVerification {
+	violationRules {
+		rule {
+			limit {
+				minimum = 0.80
+			}
+		}
+	}
 }
 

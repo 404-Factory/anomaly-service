@@ -184,12 +184,14 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
             // 6. Publish Event via Transactional Outbox (EventPublisher)
             if (eventPublishEnabled) {
                 AnomalyCreatedPayload payload = AnomalyCreatedPayload.builder()
+                        .anomalyLogId(savedAnomaly.getId())
                         .equipmentId(equipment.getId())
                         .equipmentName(equipment.getName())
                         .recipeParameter(sensorType)
                         .severity(savedAnomaly.getSeverity().name())
                         .occurredTime(savedAnomaly.getLastDetectedAt())
                         .causeRule(savedAnomaly.getRuleName().name())
+                        .detectionReason(savedAnomaly.getDetectionReason())
                         .build();
 
                 Event<AnomalyCreatedPayload> event = domainEventFactory.create(

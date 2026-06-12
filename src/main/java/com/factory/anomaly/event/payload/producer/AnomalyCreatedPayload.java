@@ -14,10 +14,12 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class AnomalyCreatedPayload implements EventPayload {
+    private Long anomalyLogId;
     private Long equipmentId;
     private String equipmentName;
     private String recipeParameter;
     private String severity;
     private Instant occurredTime;
     private String causeRule;
+    private String detectionReason;
 }

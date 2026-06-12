@@ -86,6 +86,7 @@ class AnomalyDetectionServiceIntegrationTest {
         OutboxEntity saved = outboxEvents.get(0);
         assertThat(saved.getEventType()).isEqualTo("AnomalyCreated");
         assertThat(saved.getAggregateType()).isEqualTo("Anomaly");
+        assertThat(saved.getPayload()).contains("anomalyLogId");
         assertThat(saved.getPayload()).contains("EQP-01");
         assertThat(saved.getPayload()).contains("TEMP");
         assertThat(saved.getPayload()).contains("WARNING");
