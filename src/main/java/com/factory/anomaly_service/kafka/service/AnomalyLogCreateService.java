@@ -28,14 +28,14 @@ public class AnomalyLogCreateService {
     @Transactional
     public void create(SensorViolationPayload payload) {
         AnomalyLogEntity anomalyLog = AnomalyLogEntity.builder()
-            .recipeParameter(payload.getSensorType())
-            .severity(payload.getSeverity() != null ? Severity.valueOf(payload.getSeverity()) : null)
-            .occurredTime(payload.getDetectedAt() != null
-                ? LocalDateTime.ofInstant(payload.getDetectedAt(), ZoneOffset.UTC) : null)
-            .ruleName(payload.getRuleName() != null ? RuleName.valueOf(payload.getRuleName()) : null)
-            .anomalyType(payload.getAnomalyType() != null ? AnomalyType.valueOf(payload.getAnomalyType()) : null)
-            .sampleCount(payload.getSampleCount())
-            .detectionReason(payload.getReason())
+            .recipeParameter(payload.sensorType())
+            .severity(payload.severity() != null ? Severity.valueOf(payload.severity()) : null)
+            .occurredTime(payload.detectedAt() != null
+                ? LocalDateTime.ofInstant(payload.detectedAt(), ZoneOffset.UTC) : null)
+            .ruleName(payload.ruleName() != null ? RuleName.valueOf(payload.ruleName()) : null)
+            .anomalyType(payload.anomalyType() != null ? AnomalyType.valueOf(payload.anomalyType()) : null)
+            .sampleCount(payload.sampleCount())
+            .detectionReason(payload.reason())
             .build();
 
         AnomalyLogEntity saved = anomalyLogRepository.save(anomalyLog);
@@ -43,14 +43,14 @@ public class AnomalyLogCreateService {
 
         AnomalyCreatedPayload eventPayload = AnomalyCreatedPayload.builder()
             .anomalyLogId(saved.getLogId())
-            .equipmentId(payload.getEquipmentId())
-            .recipeParameter(payload.getSensorType())
-            .severity(payload.getSeverity())
-            .occurredTime(payload.getDetectedAt())
-            .causeRule(payload.getRuleName())
-            .anomalyType(payload.getAnomalyType())
-            .sampleCount(payload.getSampleCount())
-            .detectionReason(payload.getReason())
+            .equipmentId(payload.equipmentId())
+            .recipeParameter(payload.sensorType())
+            .severity(payload.severity())
+            .occurredTime(payload.detectedAt())
+            .causeRule(payload.ruleName())
+            .anomalyType(payload.anomalyType())
+            .sampleCount(payload.sampleCount())
+            .detectionReason(payload.reason())
             .build();
 
         eventPublisher.publishEvent(
