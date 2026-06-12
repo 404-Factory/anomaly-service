@@ -36,6 +36,8 @@ spec:
               value: "6379"
             - name: REDIS_SSL
               value: "true"
+            - name: EVENT_PUBLISH_ENABLED
+              value: "true"
             - name: DB_MAX_POOL_SIZE
               value: "5"
             - name: DB_MIN_IDLE

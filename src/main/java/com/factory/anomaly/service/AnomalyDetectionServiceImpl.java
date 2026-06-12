@@ -17,8 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Optional;
 
@@ -36,22 +34,6 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
     @Value("${app.event.publish-enabled:false}")
     private boolean eventPublishEnabled;
-
-    private void publishAfterCommit(Event<?> event) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            eventPublisher.publish(event);
-            return;
-        }
-
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        eventPublisher.publish(event);
-                    }
-                }
-        );
-    }
 
     @Override
     public Optional<Anomaly> detect(SensorViolationDto violation) {
@@ -216,7 +198,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                         String.valueOf(savedAnomaly.getId()),
                         payload
                 );
-                publishAfterCommit(event);
+                eventPublisher.publish(event);
             } else {
                 log.info(
                         "Skip anomaly event publishing. reason=EVENT_PUBLISH_DISABLED, logId={}",
