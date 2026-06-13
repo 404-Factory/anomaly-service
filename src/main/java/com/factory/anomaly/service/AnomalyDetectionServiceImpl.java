@@ -6,33 +6,43 @@ import com.factory.anomaly.event.payload.producer.AnomalyCreatedPayload;
 import com.factory.anomaly.event.type.AnomalyEventType;
 import com.factory.anomaly.infrastructure.entity.Anomaly;
 import com.factory.anomaly.infrastructure.entity.EquipmentProjection;
+import com.factory.anomaly.infrastructure.entity.Violation;
 import com.factory.anomaly.infrastructure.redis.SensorRedisRepository;
 import com.factory.anomaly.infrastructure.repository.AnomalyRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentProjectionRepository;
+import com.factory.anomaly.infrastructure.repository.ViolationRepository;
 import com.factory.common.event.domain.Event;
 import com.factory.common.event.support.DomainEventFactory;
 import com.factory.common.kafka.publisher.EventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Instant;
 import java.util.Optional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
     private final SensorRedisRepository sensorRedisRepository;
     private final AnomalyRepository anomalyRepository;
     private final EquipmentProjectionRepository equipmentProjectionRepository;
+    private final ViolationRepository violationRepository;
     private final EventPublisher eventPublisher;
     private final DomainEventFactory domainEventFactory;
+
+    @Lazy
+    @Autowired
+    private AnomalyDetectionServiceImpl self;
 
     @Value("${app.event.publish-enabled:false}")
     private boolean eventPublishEnabled;
@@ -56,7 +66,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
     @Override
     public Optional<Anomaly> detect(SensorViolationDto violation) {
         log.info(
-                "Start anomaly detection from Flink violation. equipmentCode={}, sensorType={}, ruleName={}, anomalyType={}, detectedAt={}",
+                "Start anomaly detection from Flink violation. equipmentId={}, sensorType={}, ruleName={}, anomalyType={}, detectedAt={}",
                 violation.equipmentId(),
                 violation.sensorType(),
                 violation.ruleName(),
@@ -64,7 +74,8 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 violation.detectedAt()
         );
 
-        String equipmentCode = violation.equipmentId();
+        Long equipmentId = violation.equipmentId();
+        String equipmentCode = String.valueOf(equipmentId);
         String sensorType = violation.sensorType();
         String ruleNameStr = violation.ruleName().name();
         String anomalyTypeStr = violation.anomalyType().name();
@@ -91,8 +102,8 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
 
         if (!isLocked) {
             log.error(
-                    "Failed to acquire distributed lock for anomaly detection. equipmentCode={}, sensorType={}, ruleName={}, anomalyType={}",
-                    equipmentCode,
+                    "Failed to acquire distributed lock for anomaly detection. equipmentId={}, sensorType={}, ruleName={}, anomalyType={}",
+                    equipmentId,
                     sensorType,
                     ruleNameStr,
                     anomalyTypeStr
@@ -101,135 +112,206 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         }
 
         try {
-            // 2. Check Redis Cache for Deduplication
-            Long cachedAnomalyId = sensorRedisRepository.getAnomalyCache(
-                    equipmentCode,
+            // 2. Delegate to REQUIRES_NEW transactional method so DB commits before lock release
+            return self.processAnomalyDetectionInTransaction(
+                    violation, equipmentId, equipmentCode, sensorType, ruleNameStr, anomalyTypeStr
+            );
+        } finally {
+            // 3. Always release the lock
+            sensorRedisRepository.releaseLock(equipmentCode, sensorType, ruleNameStr, anomalyTypeStr);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Optional<Anomaly> processAnomalyDetectionInTransaction(
+            SensorViolationDto violation,
+            Long equipmentId,
+            String equipmentCode,
+            String sensorType,
+            String ruleNameStr,
+            String anomalyTypeStr
+    ) {
+        // 1. Check Redis Cache for Deduplication
+        Long cachedAnomalyId = sensorRedisRepository.getAnomalyCache(
+                equipmentCode,
+                sensorType,
+                ruleNameStr,
+                anomalyTypeStr
+        );
+
+        if (cachedAnomalyId != null) {
+            log.info(
+                    "Duplicate anomaly detected (cached). updating existing anomaly logId={}, equipmentId={}, sensorType={}, ruleName={}, anomalyType={}",
+                    cachedAnomalyId,
+                    equipmentId,
                     sensorType,
-                    ruleNameStr,
+                    violation.ruleName(),
                     anomalyTypeStr
             );
 
-            if (cachedAnomalyId != null) {
-                log.info(
-                        "Duplicate anomaly detected (cached). updating existing anomaly logId={}, equipmentCode={}, sensorType={}, ruleName={}, anomalyType={}",
-                        cachedAnomalyId,
-                        equipmentCode,
-                        sensorType,
-                        violation.ruleName(),
-                        anomalyTypeStr
-                );
-
-                Optional<Anomaly> existingAnomalyOpt = anomalyRepository.findById(cachedAnomalyId);
-                if (existingAnomalyOpt.isPresent()) {
-                    Anomaly existingAnomaly = existingAnomalyOpt.get();
-                    existingAnomaly.update(
-                            violation.detectedAt(),
-                            violation.sampleCount() != null ? violation.sampleCount() : existingAnomaly.getSampleCount(),
-                            violation.severity()
-                    );
+            Optional<Anomaly> existingAnomalyOpt = anomalyRepository.findById(cachedAnomalyId);
+            if (existingAnomalyOpt.isPresent()) {
+                Anomaly existingAnomaly = existingAnomalyOpt.get();
+                
+                // Physical recovery: if Flink sends severity as null, it means the rules are no longer violated.
+                if (violation.severity() == null) {
+                    log.info("Anomaly {} is physically recovered (severity is null). Resolving anomaly.", cachedAnomalyId);
+                    existingAnomaly.resolve();
                     Anomaly updatedAnomaly = anomalyRepository.save(existingAnomaly);
+                    sensorRedisRepository.deleteAnomalyCache(equipmentCode, sensorType, ruleNameStr, anomalyTypeStr);
                     return Optional.of(updatedAnomaly);
                 }
-                log.warn("Cached anomaly ID {} not found in database, recreating cache", cachedAnomalyId);
-            }
+                
+                // Safety filter in case cache is present but database state is already RESOLVED
+                if ("RESOLVED".equals(existingAnomaly.getStatus())) {
+                    log.info("Anomaly {} is already RESOLVED. Skipping update for trailing window event.", cachedAnomalyId);
+                    return Optional.empty();
+                }
 
-            // 3. Equipment Projection Lookup
-            Long equipmentId = null;
-            EquipmentProjection equipment = null;
-            try {
-                equipmentId = Long.parseLong(equipmentCode);
-                equipment = equipmentProjectionRepository.findById(equipmentId).orElse(null);
-            } catch (NumberFormatException e) {
-                log.debug("equipmentCode is not numeric ID, falling back to name search: {}", equipmentCode);
-            }
+                existingAnomaly.update(
+                        violation.detectedAt(),
+                        violation.sampleCount() != null ? violation.sampleCount() : existingAnomaly.getSampleCount(),
+                        violation.severity()
+                );
 
-            if (equipment == null) {
-                equipment = equipmentProjectionRepository.findByName(equipmentCode).orElse(null);
-            }
+                // Add 1:N Violation record
+                Violation violationEntity = Violation.builder()
+                        .equipmentId(violation.equipmentId())
+                        .sensorId(violation.sensorId())
+                        .severity(violation.severity() != null ? violation.severity().name() : "NORMAL")
+                        .detectedAt(violation.detectedAt())
+                        .value(violation.measuredValue())
+                        .referenceValue(violation.referenceValue())
+                        .deviation(violation.deviation())
+                        .deviationRate(violation.deviationRate())
+                        .description(violation.reason())
+                        .build();
+                existingAnomaly.addViolation(violationEntity);
 
-            if (equipment == null) {
-                log.warn(
-                        "Skip anomaly detection. reason=EQUIPMENT_NOT_FOUND, equipmentCode={}",
-                        equipmentCode
+                Anomaly updatedAnomaly = anomalyRepository.save(existingAnomaly);
+                return Optional.of(updatedAnomaly);
+            }
+            log.warn("Cached anomaly ID {} not found in database, recreating cache", cachedAnomalyId);
+        }
+
+        // [Timestamp Validation Filter] Check if there's a recently resolved anomaly for this sensor
+        Optional<Anomaly> latestResolvedOpt = anomalyRepository
+                .findFirstByEquipmentIdAndRecipeParameterAndStatusOrderByIdDesc(equipmentId, sensorType, "RESOLVED");
+
+        if (latestResolvedOpt.isPresent()) {
+            Anomaly latestResolved = latestResolvedOpt.get();
+            Instant resolvedAt = latestResolved.getLastDetectedAt();
+            if (violation.detectedAt().isBefore(resolvedAt) || violation.detectedAt().equals(resolvedAt)) {
+                log.info(
+                        "Skip trailing violation event from sliding window. detectedAt={}, resolvedAt={}, equipmentId={}, sensorType={}",
+                        violation.detectedAt(),
+                        resolvedAt,
+                        equipmentId,
+                        sensorType
                 );
                 return Optional.empty();
             }
+        }
 
-            // 4. Create and save new Anomaly
-            Anomaly anomaly = Anomaly.builder()
-                    .name("Anomaly_" + equipment.getName() + "_" + sensorType)
+        // 2. Equipment Projection Lookup
+        EquipmentProjection equipment = equipmentProjectionRepository.findById(equipmentId).orElse(null);
+        if (equipment == null) {
+            equipment = equipmentProjectionRepository.findByName(equipmentCode).orElse(null);
+        }
+
+        if (equipment == null) {
+            log.warn(
+                    "Skip anomaly detection. reason=EQUIPMENT_NOT_FOUND, equipmentId={}",
+                    equipmentId
+            );
+            return Optional.empty();
+        }
+
+        // 3. Create and save new Anomaly
+        Anomaly anomaly = Anomaly.builder()
+                .name("Anomaly_" + equipment.getName() + "_" + sensorType)
+                .equipmentId(equipment.getId())
+                .recipeParameter(sensorType)
+                .severity(violation.severity())
+                .lastDetectedAt(violation.detectedAt())
+                .ruleName(violation.ruleName())
+                .anomalyType(violation.anomalyType())
+                .logType(LogType.SENSOR)
+                .firstDetectedAt(violation.detectedAt())
+                .sampleCount(violation.sampleCount())
+                .detectionReason(violation.reason())
+                .measuredValue(violation.measuredValue())
+                .referenceValue(violation.referenceValue())
+                .deviation(violation.deviation())
+                .deviationRate(violation.deviationRate())
+                .min(violation.min())
+                .max(violation.max())
+                .status("ACTIVE")
+                .relatedLogIds(null)
+                .build();
+
+        // Create and add initial Violation
+        Violation violationEntity = Violation.builder()
+                .equipmentId(violation.equipmentId())
+                .sensorId(violation.sensorId())
+                .severity(violation.severity().name())
+                .detectedAt(violation.detectedAt())
+                .value(violation.measuredValue())
+                .referenceValue(violation.referenceValue())
+                .deviation(violation.deviation())
+                .deviationRate(violation.deviationRate())
+                .description(violation.reason())
+                .build();
+        anomaly.addViolation(violationEntity);
+
+        Anomaly savedAnomaly = anomalyRepository.save(anomaly);
+
+        log.info(
+                "New anomaly log saved. logId={}, equipmentId={}, sensorType={}, severity={}, ruleName={}, anomalyType={}",
+                savedAnomaly.getId(),
+                equipment.getId(),
+                sensorType,
+                savedAnomaly.getSeverity(),
+                savedAnomaly.getRuleName(),
+                savedAnomaly.getAnomalyType()
+        );
+
+        // 4. Cache the anomaly ID in Redis (TTL = 300 seconds)
+        sensorRedisRepository.setAnomalyCache(
+                equipmentCode,
+                sensorType,
+                ruleNameStr,
+                anomalyTypeStr,
+                savedAnomaly.getId(),
+                300
+        );
+
+        // 5. Publish Event via Transactional Outbox (EventPublisher)
+        if (eventPublishEnabled) {
+            AnomalyCreatedPayload payload = AnomalyCreatedPayload.builder()
                     .equipmentId(equipment.getId())
+                    .equipmentName(equipment.getName())
                     .recipeParameter(sensorType)
-                    .severity(violation.severity())
-                    .lastDetectedAt(violation.detectedAt())
-                    .ruleName(violation.ruleName())
-                    .anomalyType(violation.anomalyType())
-                    .logType(LogType.SENSOR)
-                    .firstDetectedAt(violation.detectedAt())
-                    .sampleCount(violation.sampleCount())
-                    .detectionReason(violation.reason())
-                    .measuredValue(violation.measuredValue())
-                    .referenceValue(violation.referenceValue())
-                    .deviation(violation.deviation())
-                    .deviationRate(violation.deviationRate())
-                    .min(violation.min())
-                    .max(violation.max())
-                    .relatedLogIds(null)
+                    .severity(savedAnomaly.getSeverity().name())
+                    .occurredTime(savedAnomaly.getLastDetectedAt())
+                    .causeRule(savedAnomaly.getRuleName().name())
                     .build();
 
-            Anomaly savedAnomaly = anomalyRepository.save(anomaly);
-
+            Event<AnomalyCreatedPayload> event = domainEventFactory.create(
+                    AnomalyEventType.ANOMALY_CREATED,
+                    "Anomaly",
+                    String.valueOf(savedAnomaly.getId()),
+                    payload
+            );
+            publishAfterCommit(event);
+        } else {
             log.info(
-                    "New anomaly log saved. logId={}, equipmentId={}, sensorType={}, severity={}, ruleName={}, anomalyType={}",
-                    savedAnomaly.getId(),
-                    equipment.getId(),
-                    sensorType,
-                    savedAnomaly.getSeverity(),
-                    savedAnomaly.getRuleName(),
-                    savedAnomaly.getAnomalyType()
+                    "Skip anomaly event publishing. reason=EVENT_PUBLISH_DISABLED, logId={}",
+                    savedAnomaly.getId()
             );
-
-            // 5. Cache the anomaly ID in Redis (TTL = 300 seconds)
-            sensorRedisRepository.setAnomalyCache(
-                    equipmentCode,
-                    sensorType,
-                    ruleNameStr,
-                    anomalyTypeStr,
-                    savedAnomaly.getId(),
-                    300
-            );
-
-            // 6. Publish Event via Transactional Outbox (EventPublisher)
-            if (eventPublishEnabled) {
-                AnomalyCreatedPayload payload = AnomalyCreatedPayload.builder()
-                        .equipmentId(equipment.getId())
-                        .equipmentName(equipment.getName())
-                        .recipeParameter(sensorType)
-                        .severity(savedAnomaly.getSeverity().name())
-                        .occurredTime(savedAnomaly.getLastDetectedAt())
-                        .causeRule(savedAnomaly.getRuleName().name())
-                        .build();
-
-                Event<AnomalyCreatedPayload> event = domainEventFactory.create(
-                        AnomalyEventType.ANOMALY_CREATED,
-                        "Anomaly",
-                        String.valueOf(savedAnomaly.getId()),
-                        payload
-                );
-                publishAfterCommit(event);
-            } else {
-                log.info(
-                        "Skip anomaly event publishing. reason=EVENT_PUBLISH_DISABLED, logId={}",
-                        savedAnomaly.getId()
-                );
-            }
-
-            return Optional.of(savedAnomaly);
-
-        } finally {
-            // 7. Always release the lock
-            sensorRedisRepository.releaseLock(equipmentCode, sensorType, ruleNameStr, anomalyTypeStr);
         }
+
+        return Optional.of(savedAnomaly);
     }
 }
 

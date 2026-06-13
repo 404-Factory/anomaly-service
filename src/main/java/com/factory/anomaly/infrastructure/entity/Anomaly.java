@@ -4,6 +4,7 @@ import com.factory.anomaly.domain.enums.AnomalyType;
 import com.factory.anomaly.domain.enums.LogType;
 import com.factory.anomaly.domain.enums.RuleName;
 import com.factory.anomaly.domain.enums.Severity;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,8 +12,11 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -80,6 +84,10 @@ public class Anomaly {
     @Column(name = "max")
     private Double max;
 
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private String status = "ACTIVE";
+
     @Column(name = "first_detected_at")
     private Instant firstDetectedAt;
 
@@ -89,12 +97,25 @@ public class Anomaly {
     @Column(name = "detection_reason", columnDefinition = "TEXT")
     private String detectionReason;
 
+    @OneToMany(mappedBy = "anomaly", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Violation> violations = new ArrayList<>();
+
     public void update(Instant lastDetectedAt, Integer sampleCount, Severity severity) {
         this.lastDetectedAt = lastDetectedAt;
         this.sampleCount = sampleCount;
         if (severity != null && (this.severity == null || severity.ordinal() > this.severity.ordinal())) {
             this.severity = severity;
         }
+    }
+
+    public void resolve() {
+        this.status = "RESOLVED";
+    }
+
+    public void addViolation(Violation violation) {
+        this.violations.add(violation);
+        violation.setAnomaly(this);
     }
 }
 

@@ -11,6 +11,7 @@ import com.factory.anomaly.infrastructure.entity.EquipmentProjection;
 import com.factory.anomaly.infrastructure.redis.SensorRedisRepository;
 import com.factory.anomaly.infrastructure.repository.AnomalyRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentProjectionRepository;
+import com.factory.anomaly.infrastructure.repository.ViolationRepository;
 import com.factory.common.event.domain.DomainEvent;
 import com.factory.common.event.domain.Event;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +44,8 @@ class AnomalyDetectionServiceTest {
     @Mock
     private EquipmentProjectionRepository equipmentProjectionRepository;
     @Mock
+    private ViolationRepository violationRepository;
+    @Mock
     private com.factory.common.kafka.publisher.EventPublisher eventPublisher;
     @Mock
     private com.factory.common.event.support.DomainEventFactory domainEventFactory;
@@ -53,9 +56,11 @@ class AnomalyDetectionServiceTest {
                 sensorRedisRepository,
                 anomalyRepository,
                 equipmentProjectionRepository,
+                violationRepository,
                 eventPublisher,
                 domainEventFactory
         );
+        ReflectionTestUtils.setField(anomalyDetectionService, "self", anomalyDetectionService);
         ReflectionTestUtils.setField(anomalyDetectionService, "eventPublishEnabled", false);
     }
 
@@ -67,7 +72,8 @@ class AnomalyDetectionServiceTest {
         Instant detectedAt = Instant.parse("2026-06-10T12:00:59Z");
 
         SensorViolationDto violation = new SensorViolationDto(
-                equipmentCode,
+                1L,
+                "1-TEMP",
                 sensorType,
                 RuleName.NELSON_RULE_3,
                 AnomalyType.HIGH,
@@ -149,7 +155,8 @@ class AnomalyDetectionServiceTest {
         Instant detectedAt = Instant.parse("2026-06-10T12:00:59Z");
 
         SensorViolationDto violation = new SensorViolationDto(
-                equipmentCode,
+                1L,
+                "1-TEMP",
                 sensorType,
                 RuleName.NELSON_RULE_3,
                 AnomalyType.HIGH,
@@ -219,7 +226,8 @@ class AnomalyDetectionServiceTest {
         Instant detectedAt = Instant.parse("2026-06-10T12:00:59Z");
 
         SensorViolationDto violation = new SensorViolationDto(
-                equipmentCode,
+                1L,
+                "1-TEMP",
                 sensorType,
                 RuleName.NELSON_RULE_3,
                 AnomalyType.HIGH,
@@ -354,8 +362,21 @@ class AnomalyDetectionServiceTest {
         Instant detectedAt = Instant.parse("2026-06-10T12:00:59Z");
 
         SensorViolationDto violation = new SensorViolationDto(
-                equipmentCode, sensorType, RuleName.NELSON_RULE_3, AnomalyType.HIGH, Severity.WARNING,
-                15.0, 12.0, 3.0, 25.0, 10.0, 50.0, detectedAt, 10, "Nelson Rule 3 Violation"
+                1L,
+                "1-TEMP",
+                sensorType,
+                RuleName.NELSON_RULE_3,
+                AnomalyType.HIGH,
+                Severity.WARNING,
+                15.0,
+                12.0,
+                3.0,
+                25.0,
+                10.0,
+                50.0,
+                detectedAt,
+                10,
+                "Nelson Rule 3 Violation"
         );
 
         when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorType), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))

@@ -6,7 +6,8 @@ import com.factory.anomaly.domain.enums.Severity;
 import java.time.Instant;
 
 public record SensorViolationDto(
-    String equipmentId,
+    Long equipmentId,
+    String sensorId,
     String sensorType,
     RuleName ruleName,
     AnomalyType anomalyType,

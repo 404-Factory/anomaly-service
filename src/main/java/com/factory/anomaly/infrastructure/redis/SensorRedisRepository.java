@@ -40,4 +40,9 @@ public class SensorRedisRepository {
         String lockKey = String.format("anomaly:lock:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
         redisTemplate.delete(lockKey);
     }
+
+    public void deleteAnomalyCache(String equipmentCode, String sensorType, String ruleName, String anomalyType) {
+        String cacheKey = String.format("anomaly:cache:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
+        redisTemplate.delete(cacheKey);
+    }
 }

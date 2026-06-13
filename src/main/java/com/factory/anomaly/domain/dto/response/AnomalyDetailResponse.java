@@ -31,6 +31,12 @@ public class AnomalyDetailResponse {
     private String summary;
 
 
+    private java.util.List<ViolationResponse> violations;
+
+    public void setViolations(java.util.List<ViolationResponse> violations) {
+        this.violations = violations;
+    }
+
     public AnomalyDetailResponse(Long id, String name, Severity severity, String processName,
         String equipmentName, String recipeParameter, String ruleName, String anomalyType,
         Integer sampleCount, String relatedLogIds, Double minValue, Double maxValue,
@@ -59,6 +65,33 @@ public class AnomalyDetailResponse {
         this.lastDetectedAt = lastDetectedAt;
         this.analysisStatus = analysisStatus;
         this.summary = summary;
+    }
+
+    @Getter
+    public static class ViolationResponse {
+        private Long id;
+        private Long equipmentId;
+        private String sensorId;
+        private String severity;
+        private Instant detectedAt;
+        private Double value;
+        private Double referenceValue;
+        private Double deviation;
+        private Double deviationRate;
+        private String description;
+
+        public ViolationResponse(com.factory.anomaly.infrastructure.entity.Violation violation) {
+            this.id = violation.getId();
+            this.equipmentId = violation.getEquipmentId();
+            this.sensorId = violation.getSensorId();
+            this.severity = violation.getSeverity();
+            this.detectedAt = violation.getDetectedAt();
+            this.value = violation.getValue();
+            this.referenceValue = violation.getReferenceValue();
+            this.deviation = violation.getDeviation();
+            this.deviationRate = violation.getDeviationRate();
+            this.description = violation.getDescription();
+        }
     }
 }
 

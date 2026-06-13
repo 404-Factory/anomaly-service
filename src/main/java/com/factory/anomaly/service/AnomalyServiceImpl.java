@@ -46,9 +46,16 @@ public class AnomalyServiceImpl implements AnomalyService {
 
     @Override
     public AnomalyDetailResponse getAnomaly(Long anomalyId) {
-        anomalyRepository.findById(anomalyId)
+        Anomaly anomaly = anomalyRepository.findById(anomalyId)
             .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANOMALY_LOG_NOT_FOUND));
-        return anomalyRepository.fetchAnomaly(anomalyId);
+        AnomalyDetailResponse response = anomalyRepository.fetchAnomaly(anomalyId);
+        if (response != null) {
+            List<AnomalyDetailResponse.ViolationResponse> violationDtos = anomaly.getViolations().stream()
+                .map(AnomalyDetailResponse.ViolationResponse::new)
+                .toList();
+            response.setViolations(violationDtos);
+        }
+        return response;
     }
 
     @Override
