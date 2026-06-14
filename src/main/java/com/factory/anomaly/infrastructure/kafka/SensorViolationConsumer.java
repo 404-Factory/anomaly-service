@@ -2,6 +2,7 @@ package com.factory.anomaly.infrastructure.kafka;
 
 import com.factory.anomaly.event.payload.SensorViolationDto;
 import com.factory.anomaly.service.AnomalyDetectionService;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +24,13 @@ public class SensorViolationConsumer {
     public void consume(String message) {
         log.info("Received sensor violation message from Kafka: {}", message);
         try {
-            SensorViolationDto violation = objectMapper.readValue(message, SensorViolationDto.class);
+            JsonNode rootNode = objectMapper.readTree(message);
+            SensorViolationDto violation;
+            if (rootNode != null && rootNode.has("payload")) {
+                violation = objectMapper.treeToValue(rootNode.get("payload"), SensorViolationDto.class);
+            } else {
+                violation = objectMapper.readValue(message, SensorViolationDto.class);
+            }
             anomalyDetectionService.detect(violation);
         } catch (Exception e) {
             log.error("Error processing Kafka sensor violation message: {}", message, e);
