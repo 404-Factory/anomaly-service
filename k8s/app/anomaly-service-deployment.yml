@@ -40,6 +40,8 @@ spec:
               value: "5"
             - name: DB_MIN_IDLE
               value: "2"
+            - name: EVENT_PUBLISH_ENABLED
+              value: "true"
           resources:
             limits:
               memory: "512Mi"
