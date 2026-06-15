@@ -5,7 +5,7 @@ spring:
 
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: ${DB_URL}
+    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:anomaly_db}?sslMode=trust
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:
