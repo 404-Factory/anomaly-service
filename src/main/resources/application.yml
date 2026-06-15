@@ -46,5 +46,9 @@ management:
       show-details: never
 
 app:
+  kafka:
+    consumer:
+      violation-topic: ${KAFKA_VIOLATIONS_TOPIC:sensor-violations}
+      violation-group-id: ${KAFKA_VIOLATIONS_GROUP_ID:anomaly-violation-group}
   chatbot-service:
     url: ${CHATBOT_SERVICE_URL:http://localhost:8085}
