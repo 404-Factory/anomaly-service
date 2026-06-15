@@ -19,7 +19,8 @@ public class SensorViolationConsumer {
 
     @KafkaListener(
         topics = "${app.kafka.consumer.violation-topic:sensor-violations}",
-        groupId = "${spring.kafka.consumer.violation-group-id:anomaly-violation-group}"
+        groupId = "${app.kafka.consumer.violation-group-id:anomaly-violation-group}",
+        containerFactory = "flinkKafkaListenerContainerFactory"
     )
     public void consume(String message) {
         log.info("Received sensor violation message from Kafka: {}", message);
