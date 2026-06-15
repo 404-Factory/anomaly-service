@@ -101,7 +101,8 @@ public class Anomaly {
     public void update(Instant lastDetectedAt, Integer sampleCount, Severity severity) {
         this.lastDetectedAt = lastDetectedAt;
         this.sampleCount = sampleCount;
-        if (severity != null && (this.severity == null || severity.ordinal() > this.severity.ordinal())) {
+        if (severity != null && (this.severity == null
+            || severity.ordinal() > this.severity.ordinal())) {
             this.severity = severity;
         }
     }
