@@ -55,8 +55,10 @@ public class AnomalyServiceImpl implements AnomalyService {
     private boolean eventPublishEnabled;
 
     @Override
-    public Page<AnomalyResponse> getAnomalies(Long processId, Long equipmentId, String keyword, Pageable pageable) {
-        return anomalyRepository.fetchAnomaliesWithCondition(processId, equipmentId, keyword, pageable);
+    public Page<AnomalyResponse> getAnomalies(Long processId, Long equipmentId, String keyword,
+        Pageable pageable) {
+        return anomalyRepository.fetchAnomaliesWithCondition(processId, equipmentId, keyword,
+            pageable);
     }
 
     @Override
@@ -69,7 +71,8 @@ public class AnomalyServiceImpl implements AnomalyService {
 
         // Auto-trigger AI analysis if it does not exist
         if (response.getAnalysisStatus() == null) {
-            log.info("Analysis record not found for anomaly {}. Auto-triggering AI analysis.", anomalyId);
+            log.info("Analysis record not found for anomaly {}. Auto-triggering AI analysis.",
+                anomalyId);
             try {
                 analysisService.triggerAnalysis(anomalyId);
                 response.setAnalysisStatus(AnalysisStatus.RUNNING.name());
@@ -84,12 +87,12 @@ public class AnomalyServiceImpl implements AnomalyService {
     @Override
     public Optional<Anomaly> detect(SensorViolationDto violation) {
         log.info(
-                "Start anomaly detection from Flink violation. equipmentId={}, sensorId={}, ruleName={}, anomalyType={}, detectedAt={}",
-                violation.equipmentId(),
-                violation.sensorId(),
-                violation.ruleName(),
-                violation.anomalyType(),
-                violation.detectedAt()
+            "Start anomaly detection from Flink violation. equipmentId={}, sensorId={}, ruleName={}, anomalyType={}, detectedAt={}",
+            violation.equipmentId(),
+            violation.sensorId(),
+            violation.ruleName(),
+            violation.anomalyType(),
+            violation.detectedAt()
         );
 
         Long equipmentId = violation.equipmentId();
@@ -104,7 +107,8 @@ public class AnomalyServiceImpl implements AnomalyService {
         int retryCount = 0;
 
         while (retryCount < maxRetries) {
-            isLocked = sensorRedisRepository.acquireLock(equipmentCode, sensorId, ruleNameStr, anomalyTypeStr, 5); // 5s TTL
+            isLocked = sensorRedisRepository.acquireLock(equipmentCode, sensorId, ruleNameStr,
+                anomalyTypeStr, 5); // 5s TTL
             if (isLocked) {
                 break;
             }
@@ -120,11 +124,11 @@ public class AnomalyServiceImpl implements AnomalyService {
 
         if (!isLocked) {
             log.error(
-                    "Failed to acquire distributed lock for anomaly detection. equipmentId={}, sensorId={}, ruleName={}, anomalyType={}",
-                    equipmentId,
-                    sensorId,
-                    ruleNameStr,
-                    anomalyTypeStr
+                "Failed to acquire distributed lock for anomaly detection. equipmentId={}, sensorId={}, ruleName={}, anomalyType={}",
+                equipmentId,
+                sensorId,
+                ruleNameStr,
+                anomalyTypeStr
             );
             return Optional.empty();
         }
@@ -132,7 +136,7 @@ public class AnomalyServiceImpl implements AnomalyService {
         try {
             // 2. Delegate to REQUIRES_NEW transactional method so DB commits before lock release
             return self.processAnomalyDetectionInTransaction(
-                    violation, equipmentId, equipmentCode, sensorId, ruleNameStr, anomalyTypeStr
+                violation, equipmentId, equipmentCode, sensorId, ruleNameStr, anomalyTypeStr
             );
         } finally {
             // 3. Always release the lock
@@ -143,190 +147,201 @@ public class AnomalyServiceImpl implements AnomalyService {
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<Anomaly> processAnomalyDetectionInTransaction(
-            SensorViolationDto violation,
-            Long equipmentId,
-            String equipmentCode,
-            String sensorId,
-            String ruleNameStr,
-            String anomalyTypeStr
+        SensorViolationDto violation,
+        Long equipmentId,
+        String equipmentCode,
+        String sensorId,
+        String ruleNameStr,
+        String anomalyTypeStr
     ) {
         // 1. Check Redis Cache for Deduplication
         Long cachedAnomalyId = sensorRedisRepository.getAnomalyCache(
-                equipmentCode,
-                sensorId,
-                ruleNameStr,
-                anomalyTypeStr
+            equipmentCode,
+            sensorId,
+            ruleNameStr,
+            anomalyTypeStr
         );
 
         if (cachedAnomalyId != null) {
             log.info(
-                    "Duplicate anomaly detected (cached). updating existing anomaly logId={}, equipmentId={}, sensorId={}, ruleName={}, anomalyType={}",
-                    cachedAnomalyId,
-                    equipmentId,
-                    sensorId,
-                    violation.ruleName(),
-                    anomalyTypeStr
+                "Duplicate anomaly detected (cached). updating existing anomaly logId={}, equipmentId={}, sensorId={}, ruleName={}, anomalyType={}",
+                cachedAnomalyId,
+                equipmentId,
+                sensorId,
+                violation.ruleName(),
+                anomalyTypeStr
             );
 
             Optional<Anomaly> existingAnomalyOpt = anomalyRepository.findById(cachedAnomalyId);
             if (existingAnomalyOpt.isPresent()) {
                 Anomaly existingAnomaly = existingAnomalyOpt.get();
-                
+
                 // Physical recovery: if Flink sends severity as null, it means the rules are no longer violated.
                 if (violation.severity() == null) {
-                    log.info("Anomaly {} is physically recovered (severity is null). Resolving anomaly.", cachedAnomalyId);
+                    log.info(
+                        "Anomaly {} is physically recovered (severity is null). Resolving anomaly.",
+                        cachedAnomalyId);
                     existingAnomaly.resolve();
                     Anomaly updatedAnomaly = anomalyRepository.save(existingAnomaly);
-                    sensorRedisRepository.deleteAnomalyCache(equipmentCode, sensorId, ruleNameStr, anomalyTypeStr);
+                    sensorRedisRepository.deleteAnomalyCache(equipmentCode, sensorId, ruleNameStr,
+                        anomalyTypeStr);
                     return Optional.of(updatedAnomaly);
                 }
-                
+
                 // Safety filter in case cache is present but database state is already RESOLVED
                 if ("RESOLVED".equals(existingAnomaly.getStatus())) {
-                    log.info("Anomaly {} is already RESOLVED. Skipping update for trailing window event.", cachedAnomalyId);
+                    log.info(
+                        "Anomaly {} is already RESOLVED. Skipping update for trailing window event.",
+                        cachedAnomalyId);
                     return Optional.empty();
                 }
 
                 existingAnomaly.update(
-                        violation.detectedAt(),
-                        violation.sampleCount() != null ? violation.sampleCount() : existingAnomaly.getSampleCount(),
-                        violation.severity()
+                    violation.detectedAt(),
+                    violation.sampleCount() != null ? violation.sampleCount()
+                        : existingAnomaly.getSampleCount(),
+                    violation.severity()
                 );
 
                 // Add 1:N Violation record
                 Violation violationEntity = Violation.builder()
-                        .equipmentId(violation.equipmentId())
-                        .sensorId(violation.sensorId())
-                        .severity(violation.severity() != null ? violation.severity().name() : "NORMAL")
-                        .detectedAt(violation.detectedAt())
-                        .value(violation.measuredValue())
-                        .referenceValue(violation.referenceValue())
-                        .deviation(violation.deviation())
-                        .deviationRate(violation.deviationRate())
-                        .description(violation.reason())
-                        .build();
+                    .equipmentId(violation.equipmentId())
+                    .sensorId(violation.sensorId())
+                    .severity(violation.severity() != null ? violation.severity().name() : "NORMAL")
+                    .detectedAt(violation.detectedAt())
+                    .value(violation.measuredValue())
+                    .referenceValue(violation.referenceValue())
+                    .deviation(violation.deviation())
+                    .deviationRate(violation.deviationRate())
+                    .description(violation.reason())
+                    .build();
                 existingAnomaly.addViolation(violationEntity);
 
                 Anomaly updatedAnomaly = anomalyRepository.save(existingAnomaly);
                 return Optional.of(updatedAnomaly);
             }
-            log.warn("Cached anomaly ID {} not found in database, recreating cache", cachedAnomalyId);
+            log.warn("Cached anomaly ID {} not found in database, recreating cache",
+                cachedAnomalyId);
         }
 
         // [Timestamp Validation Filter] Check if there's a recently resolved anomaly for this sensor (using sensorType/recipeParameter)
         String sensorType = violation.sensorType();
         Optional<Anomaly> latestResolvedOpt = anomalyRepository
-                .findFirstByEquipmentIdAndRecipeParameterAndStatusOrderByIdDesc(equipmentId, sensorType, "RESOLVED");
+            .findFirstByEquipmentIdAndRecipeParameterAndStatusOrderByIdDesc(equipmentId, sensorType,
+                "RESOLVED");
 
         if (latestResolvedOpt.isPresent()) {
             Anomaly latestResolved = latestResolvedOpt.get();
             Instant resolvedAt = latestResolved.getLastDetectedAt();
-            if (violation.detectedAt().isBefore(resolvedAt) || violation.detectedAt().equals(resolvedAt)) {
+            if (violation.detectedAt().isBefore(resolvedAt) || violation.detectedAt()
+                .equals(resolvedAt)) {
                 log.info(
-                        "Skip trailing violation event from sliding window. detectedAt={}, resolvedAt={}, equipmentId={}, sensorType={}",
-                        violation.detectedAt(),
-                        resolvedAt,
-                        equipmentId,
-                        sensorType
+                    "Skip trailing violation event from sliding window. detectedAt={}, resolvedAt={}, equipmentId={}, sensorType={}",
+                    violation.detectedAt(),
+                    resolvedAt,
+                    equipmentId,
+                    sensorType
                 );
                 return Optional.empty();
             }
         }
 
         // 2. Equipment Projection Lookup
-        EquipmentProjection equipment = equipmentProjectionRepository.findById(equipmentId).orElse(null);
+        EquipmentProjection equipment = equipmentProjectionRepository.findById(equipmentId)
+            .orElse(null);
         if (equipment == null) {
             equipment = equipmentProjectionRepository.findByName(equipmentCode).orElse(null);
         }
 
         if (equipment == null) {
             log.warn(
-                    "Skip anomaly detection. reason=EQUIPMENT_NOT_FOUND, equipmentId={}",
-                    equipmentId
+                "Skip anomaly detection. reason=EQUIPMENT_NOT_FOUND, equipmentId={}",
+                equipmentId
             );
             return Optional.empty();
         }
 
         // 3. Create and save new Anomaly
         Anomaly anomaly = Anomaly.builder()
-                .name("Anomaly_" + equipment.getName() + "_" + sensorType)
-                .equipmentId(equipment.getId())
-                .recipeParameter(sensorType)
-                .severity(violation.severity())
-                .lastDetectedAt(violation.detectedAt())
-                .ruleName(violation.ruleName())
-                .anomalyType(violation.anomalyType())
-                .logType(LogType.SENSOR)
-                .firstDetectedAt(violation.detectedAt())
-                .sampleCount(violation.sampleCount())
-                .detectionReason(violation.reason())
-                .measuredValue(violation.measuredValue())
-                .referenceValue(violation.referenceValue())
-                .deviation(violation.deviation())
-                .deviationRate(violation.deviationRate())
-                .min(violation.min())
-                .max(violation.max())
-                .status("ACTIVE")
-                .build();
+            .name("Anomaly_" + equipment.getName() + "_" + sensorType)
+            .equipmentId(equipment.getId())
+            .recipeParameter(sensorType)
+            .severity(violation.severity())
+            .lastDetectedAt(violation.detectedAt())
+            .ruleName(violation.ruleName())
+            .anomalyType(violation.anomalyType())
+            .logType(LogType.SENSOR)
+            .firstDetectedAt(violation.detectedAt())
+            .sampleCount(violation.sampleCount())
+            .detectionReason(violation.reason())
+            .measuredValue(violation.measuredValue())
+            .referenceValue(violation.referenceValue())
+            .deviation(violation.deviation())
+            .deviationRate(violation.deviationRate())
+            .min(violation.min())
+            .max(violation.max())
+            .status("ACTIVE")
+            .build();
 
         // Create and add initial Violation
         Violation violationEntity = Violation.builder()
-                .equipmentId(violation.equipmentId())
-                .sensorId(violation.sensorId())
-                .severity(violation.severity().name())
-                .detectedAt(violation.detectedAt())
-                .value(violation.measuredValue())
-                .referenceValue(violation.referenceValue())
-                .deviation(violation.deviation())
-                .deviationRate(violation.deviationRate())
-                .description(violation.reason())
-                .build();
+            .equipmentId(violation.equipmentId())
+            .sensorId(violation.sensorId())
+            .severity(violation.severity().name())
+            .detectedAt(violation.detectedAt())
+            .value(violation.measuredValue())
+            .referenceValue(violation.referenceValue())
+            .deviation(violation.deviation())
+            .deviationRate(violation.deviationRate())
+            .description(violation.reason())
+            .build();
         anomaly.addViolation(violationEntity);
 
         Anomaly savedAnomaly = anomalyRepository.save(anomaly);
 
         log.info(
-                "New anomaly log saved. logId={}, equipmentId={}, sensorId={}, severity={}, ruleName={}, anomalyType={}",
-                savedAnomaly.getId(),
-                equipment.getId(),
-                sensorId,
-                savedAnomaly.getSeverity(),
-                savedAnomaly.getRuleName(),
-                savedAnomaly.getAnomalyType()
+            "New anomaly log saved. logId={}, equipmentId={}, sensorId={}, severity={}, ruleName={}, anomalyType={}",
+            savedAnomaly.getId(),
+            equipment.getId(),
+            sensorId,
+            savedAnomaly.getSeverity(),
+            savedAnomaly.getRuleName(),
+            savedAnomaly.getAnomalyType()
         );
 
         // 4. Cache the anomaly ID in Redis (TTL = 300 seconds)
         sensorRedisRepository.setAnomalyCache(
-                equipmentCode,
-                sensorId,
-                ruleNameStr,
-                anomalyTypeStr,
-                savedAnomaly.getId(),
-                300
+            equipmentCode,
+            sensorId,
+            ruleNameStr,
+            anomalyTypeStr,
+            savedAnomaly.getId(),
+            300
         );
 
         // 5. Publish Event via Transactional Outbox (EventPublisher) directly in transaction
         if (eventPublishEnabled) {
             AnomalyCreatedPayload payload = AnomalyCreatedPayload.builder()
-                    .equipmentId(equipment.getId())
-                    .equipmentName(equipment.getName())
-                    .recipeParameter(sensorType)
-                    .severity(savedAnomaly.getSeverity().name())
-                    .occurredTime(savedAnomaly.getLastDetectedAt())
-                    .causeRule(savedAnomaly.getRuleName().name())
-                    .build();
+                .anomalyId(savedAnomaly.getId())
+                .equipmentId(equipment.getId())
+                .equipmentName(equipment.getName())
+                .recipeParameter(sensorType)
+                .severity(savedAnomaly.getSeverity().name())
+                .occurredTime(savedAnomaly.getLastDetectedAt())
+                .causeRule(savedAnomaly.getRuleName().name())
+                .build();
 
             Event<AnomalyCreatedPayload> event = domainEventFactory.create(
-                    AnomalyEventType.ANOMALY_CREATED,
-                    "Anomaly",
-                    String.valueOf(savedAnomaly.getId()),
-                    payload
+                AnomalyEventType.ANOMALY_CREATED,
+                "Anomaly",
+                String.valueOf(savedAnomaly.getId()),
+                payload
             );
             eventPublisher.publish(event);
         } else {
             log.info(
-                    "Skip anomaly event publishing. reason=EVENT_PUBLISH_DISABLED, logId={}",
-                    savedAnomaly.getId()
+                "Skip anomaly event publishing. reason=EVENT_PUBLISH_DISABLED, logId={}",
+                savedAnomaly.getId()
             );
         }
 

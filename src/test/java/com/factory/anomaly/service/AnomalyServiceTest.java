@@ -424,6 +424,7 @@ class AnomalyServiceTest {
         assertThat(capturedEvent.getEventType()).isEqualTo("AnomalyCreated");
 
         AnomalyCreatedPayload payload = (AnomalyCreatedPayload) capturedEvent.getPayload();
+        assertThat(payload.getAnomalyId()).isEqualTo(10L);
         assertThat(payload.getEquipmentId()).isEqualTo(1L);
         assertThat(payload.getEquipmentName()).isEqualTo("EQP-01");
         assertThat(payload.getRecipeParameter()).isEqualTo("TEMP");
