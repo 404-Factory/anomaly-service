@@ -95,6 +95,16 @@ public class AnomalyServiceImpl implements AnomalyService {
             violation.detectedAt()
         );
 
+        if (violation.anomalyType() == null || violation.ruleName() == null) {
+            log.warn(
+                "Skip anomaly detection. reason=MISSING_REQUIRED_FIELD, anomalyType={}, ruleName={}, violation={}",
+                violation.anomalyType(),
+                violation.ruleName(),
+                violation
+            );
+            return Optional.empty();
+        }
+
         Long equipmentId = violation.equipmentId();
         String equipmentCode = String.valueOf(equipmentId);
         String sensorId = violation.sensorId();
