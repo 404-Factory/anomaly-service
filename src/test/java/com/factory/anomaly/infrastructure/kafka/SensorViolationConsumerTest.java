@@ -4,7 +4,7 @@ import com.factory.anomaly.domain.enums.AnomalyType;
 import com.factory.anomaly.domain.enums.RuleName;
 import com.factory.anomaly.domain.enums.Severity;
 import com.factory.anomaly.event.payload.SensorViolationDto;
-import com.factory.anomaly.service.AnomalyDetectionService;
+import com.factory.anomaly.service.AnomalyService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,13 +25,13 @@ class SensorViolationConsumerTest {
     private SensorViolationConsumer consumer;
 
     @Mock
-    private AnomalyDetectionService anomalyDetectionService;
+    private AnomalyService anomalyService;
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @BeforeEach
     void setUp() {
-        consumer = new SensorViolationConsumer(objectMapper, anomalyDetectionService);
+        consumer = new SensorViolationConsumer(objectMapper, anomalyService);
     }
 
     @Test
@@ -57,7 +57,7 @@ class SensorViolationConsumerTest {
         consumer.consume(json);
 
         ArgumentCaptor<SensorViolationDto> captor = ArgumentCaptor.forClass(SensorViolationDto.class);
-        verify(anomalyDetectionService).detect(captor.capture());
+        verify(anomalyService).detect(captor.capture());
 
         SensorViolationDto dto = captor.getValue();
         assertThat(dto.equipmentId()).isEqualTo(1L);
@@ -97,7 +97,7 @@ class SensorViolationConsumerTest {
         consumer.consume(json);
 
         ArgumentCaptor<SensorViolationDto> captor = ArgumentCaptor.forClass(SensorViolationDto.class);
-        verify(anomalyDetectionService).detect(captor.capture());
+        verify(anomalyService).detect(captor.capture());
 
         SensorViolationDto dto = captor.getValue();
         assertThat(dto.equipmentId()).isEqualTo(1L);

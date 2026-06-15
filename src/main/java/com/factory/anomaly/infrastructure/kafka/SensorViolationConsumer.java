@@ -1,7 +1,7 @@
 package com.factory.anomaly.infrastructure.kafka;
 
 import com.factory.anomaly.event.payload.SensorViolationDto;
-import com.factory.anomaly.service.AnomalyDetectionService;
+import com.factory.anomaly.service.AnomalyService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 public class SensorViolationConsumer {
 
     private final ObjectMapper objectMapper;
-    private final AnomalyDetectionService anomalyDetectionService;
+    private final AnomalyService anomalyService;
 
     @KafkaListener(
         topics = "${app.kafka.consumer.violation-topic:sensor-violations}",
@@ -32,7 +32,7 @@ public class SensorViolationConsumer {
             } else {
                 violation = objectMapper.readValue(message, SensorViolationDto.class);
             }
-            anomalyDetectionService.detect(violation);
+            anomalyService.detect(violation);
         } catch (Exception e) {
             log.error("Error processing Kafka sensor violation message: {}", message, e);
         }

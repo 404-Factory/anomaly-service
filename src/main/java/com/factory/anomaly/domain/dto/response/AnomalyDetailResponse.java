@@ -1,7 +1,10 @@
 package com.factory.anomaly.domain.dto.response;
 
 import com.factory.anomaly.domain.enums.Severity;
+import com.factory.anomaly.infrastructure.entity.Violation;
 import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
 import lombok.Getter;
 
 @Getter
@@ -17,7 +20,6 @@ public class AnomalyDetailResponse {
     private String ruleName;
     private String anomalyType;
     private Integer sampleCount;
-    private String relatedLogIds;
     private Double minValue;
     private Double maxValue;
     private Double measuredValue;
@@ -30,19 +32,22 @@ public class AnomalyDetailResponse {
     private String analysisStatus;
     private String summary;
 
+    private List<ViolationResponse> violations;
 
-    private java.util.List<ViolationResponse> violations;
-
-    public void setViolations(java.util.List<ViolationResponse> violations) {
+    public void setViolations(List<ViolationResponse> violations) {
         this.violations = violations;
+    }
+
+    public void setAnalysisStatus(String analysisStatus) {
+        this.analysisStatus = analysisStatus;
     }
 
     public AnomalyDetailResponse(Long id, String name, Severity severity, String processName,
         String equipmentName, String recipeParameter, String ruleName, String anomalyType,
-        Integer sampleCount, String relatedLogIds, Double minValue, Double maxValue,
+        Integer sampleCount, Double minValue, Double maxValue,
         Double measuredValue, Double referenceValue, Double deviation, Double deviationRate,
         String detectionReason, Instant firstDetectedAt, Instant lastDetectedAt,
-        String analysisStatus, String summary) {
+        String analysisStatus, String summary, List<Violation> violations) {
         this.id = id;
         this.name = name;
         this.severity = severity.name();
@@ -53,7 +58,6 @@ public class AnomalyDetailResponse {
         this.ruleName = ruleName;
         this.anomalyType = anomalyType;
         this.sampleCount = sampleCount;
-        this.relatedLogIds = relatedLogIds;
         this.minValue = minValue;
         this.maxValue = maxValue;
         this.measuredValue = measuredValue;
@@ -65,6 +69,11 @@ public class AnomalyDetailResponse {
         this.lastDetectedAt = lastDetectedAt;
         this.analysisStatus = analysisStatus;
         this.summary = summary;
+        this.violations = violations != null ? 
+            violations.stream()
+                .filter(Objects::nonNull)
+                .map(ViolationResponse::new)
+                .toList() : List.of();
     }
 
     @Getter

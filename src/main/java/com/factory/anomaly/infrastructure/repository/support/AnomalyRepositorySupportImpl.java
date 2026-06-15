@@ -4,6 +4,7 @@ import com.factory.anomaly.domain.dto.response.AnomalyDetailResponse;
 import com.factory.anomaly.domain.dto.response.AnomalyResponse;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.List;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Repository;
 import static com.factory.anomaly.infrastructure.entity.QAnomaly.anomaly;
 import static com.factory.anomaly.infrastructure.entity.QEquipmentProjection.equipmentProjection;
 import static com.factory.anomaly.infrastructure.entity.QAnalysis.analysis;
+import static com.factory.anomaly.infrastructure.entity.QViolation.violation;
+import static com.querydsl.core.group.GroupBy.*;
 
 @Repository
 @RequiredArgsConstructor
@@ -43,7 +46,9 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
                 anomaly.anomalyType.stringValue(),
                 anomaly.lastDetectedAt,
                 anomaly.detectionReason,
-                anomaly.relatedLogIds
+                JPAExpressions.select(violation.count())
+                    .from(violation)
+                    .where(violation.anomaly.id.eq(anomaly.id))
             ))
             .from(anomaly)
             .leftJoin(equipmentProjection)
@@ -76,35 +81,37 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
     @Override
     public AnomalyDetailResponse fetchAnomaly(Long id) {
         return queryFactory
-            .select(Projections.constructor(
-                AnomalyDetailResponse.class,
-                anomaly.id,
-                anomaly.name,
-                anomaly.severity,
-                equipmentProjection.processName,
-                equipmentProjection.name,
-                anomaly.recipeParameter,
-                anomaly.ruleName.stringValue(),
-                anomaly.anomalyType.stringValue(),
-                anomaly.sampleCount,
-                anomaly.relatedLogIds,
-                anomaly.min,
-                anomaly.max,
-                anomaly.measuredValue,
-                anomaly.referenceValue,
-                anomaly.deviation,
-                anomaly.deviationRate,
-                anomaly.detectionReason,
-                anomaly.firstDetectedAt,
-                anomaly.lastDetectedAt,
-                analysis.status.stringValue(),
-                analysis.summary
-            ))
             .from(anomaly)
             .leftJoin(equipmentProjection).on(anomaly.equipmentId.eq(equipmentProjection.id))
             .leftJoin(analysis).on(anomaly.id.eq(analysis.anomalyId))
+            .leftJoin(violation).on(anomaly.id.eq(violation.anomaly.id))
             .where(anomaly.id.eq(id))
-            .fetchOne();
+            .transform(
+                groupBy(anomaly.id).as(Projections.constructor(
+                    AnomalyDetailResponse.class,
+                    anomaly.id,
+                    anomaly.name,
+                    anomaly.severity,
+                    equipmentProjection.processName,
+                    equipmentProjection.name,
+                    anomaly.recipeParameter,
+                    anomaly.ruleName.stringValue(),
+                    anomaly.anomalyType.stringValue(),
+                    anomaly.sampleCount,
+                    anomaly.min,
+                    anomaly.max,
+                    anomaly.measuredValue,
+                    anomaly.referenceValue,
+                    anomaly.deviation,
+                    anomaly.deviationRate,
+                    anomaly.detectionReason,
+                    anomaly.firstDetectedAt,
+                    anomaly.lastDetectedAt,
+                    analysis.status.stringValue(),
+                    analysis.summary,
+                    list(violation)
+                ))
+            ).get(id);
     }
 
     private BooleanExpression processIdEq(Long processId) {

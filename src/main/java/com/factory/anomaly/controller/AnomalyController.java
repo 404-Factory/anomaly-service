@@ -1,8 +1,10 @@
 package com.factory.anomaly.controller;
 
 import com.factory.anomaly.domain.dto.request.AnomalySearchCondition;
+import com.factory.anomaly.domain.dto.response.AnalysisResponseDto;
 import com.factory.anomaly.domain.dto.response.AnomalyDetailResponse;
 import com.factory.anomaly.domain.dto.response.AnomalyResponse;
+import com.factory.anomaly.service.AnalysisService;
 import com.factory.anomaly.service.AnomalyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class AnomalyController {
 
     private final AnomalyService anomalyService;
+    private final AnalysisService analysisService;
 
     @GetMapping
     public Page<AnomalyResponse> getAnomalies(@ModelAttribute AnomalySearchCondition condition,
@@ -27,7 +30,7 @@ public class AnomalyController {
         return anomalyService.getAnomalies(processId, equipmentId, keyword, pageable);
     }
 
-    @GetMapping({"/{id}", "/{id}/context"})
+    @GetMapping("/{id}")
     public ResponseEntity<AnomalyDetailResponse> getAnomalyLogDetail(
         @PathVariable(name = "id") Long id
     ) {
@@ -35,8 +38,9 @@ public class AnomalyController {
     }
 
     @GetMapping("/{id}/analysis")
-    public ResponseEntity<Void> triggerAnalysis(@PathVariable(name = "id") Long id) {
-        anomalyService.triggerAnalysis(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<AnalysisResponseDto> getAnalysis(
+        @PathVariable(name = "id") Long id
+    ) {
+        return ResponseEntity.ok(analysisService.getAnalysis(id));
     }
 }

@@ -60,9 +60,6 @@ public class Anomaly {
     @Column(name = "rule_name", nullable = false)
     private RuleName ruleName;
 
-    @Column(name = "related_log_ids", length = 500)
-    private String relatedLogIds;
-
     @Column(name = "sample_count")
     private Integer sampleCount;
 

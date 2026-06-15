@@ -19,12 +19,11 @@ public class AnomalyResponse {
     private String anomalyType;
     private Instant occurredTime;
     private String detectionReason;
-    private String relatedLogIds;
-
+    private Long violationCount;
 
     public AnomalyResponse(Long id, String name, String logType, Severity severity,
         String processName, String equipmentName, String recipeParameter, String ruleName,
-        String anomalyType, Instant occurredTime, String detectionReason, String relatedLogIds) {
+        String anomalyType, Instant occurredTime, String detectionReason, Long violationCount) {
         this.id = id;
         this.name = name;
         this.logType = logType;
@@ -37,6 +36,6 @@ public class AnomalyResponse {
         this.anomalyType = anomalyType;
         this.occurredTime = occurredTime;
         this.detectionReason = detectionReason;
-        this.relatedLogIds = relatedLogIds;
+        this.violationCount = violationCount;
     }
 }
