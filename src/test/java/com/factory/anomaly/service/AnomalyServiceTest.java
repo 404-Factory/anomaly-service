@@ -6,6 +6,7 @@ import com.factory.anomaly.domain.enums.Severity;
 import com.factory.anomaly.event.payload.SensorViolationDto;
 import com.factory.anomaly.event.payload.producer.AnomalyCreatedPayload;
 import com.factory.anomaly.event.type.AnomalyEventType;
+import com.factory.anomaly.domain.dto.response.AnomalyDetailResponse;
 import com.factory.anomaly.infrastructure.entity.Anomaly;
 import com.factory.anomaly.infrastructure.entity.EquipmentProjection;
 import com.factory.anomaly.infrastructure.redis.SensorRedisRepository;
@@ -429,5 +430,105 @@ class AnomalyServiceTest {
         assertThat(payload.getSeverity()).isEqualTo("WARNING");
         assertThat(payload.getCauseRule()).isEqualTo("NELSON_RULE_3");
         assertThat(payload.getOccurredTime()).isEqualTo(detectedAt);
+    }
+
+    @Test
+    void testGetAnomalyWithExistingAnalysis() {
+        // Given
+        Long anomalyId = 10L;
+        AnomalyDetailResponse mockResponse = new AnomalyDetailResponse(
+                anomalyId,
+                "Anomaly_EQP-01_TEMP",
+                Severity.WARNING,
+                "DEPOSITION",
+                "EQP-01",
+                "TEMP",
+                "NELSON_RULE_3",
+                "HIGH",
+                10,
+                20.0,
+                30.0,
+                25.0,
+                22.0,
+                3.0,
+                13.6,
+                "Nelson Rule 3 Violation",
+                Instant.parse("2026-06-10T12:00:00Z"),
+                Instant.parse("2026-06-10T12:00:59Z"),
+                "COMPLETED",
+                "AI Analysis Summary",
+                java.util.List.of()
+        );
+
+        when(anomalyRepository.fetchAnomaly(anomalyId)).thenReturn(mockResponse);
+
+        // When
+        AnomalyDetailResponse result = anomalyService.getAnomaly(anomalyId);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(anomalyId);
+        assertThat(result.getAnalysisStatus()).isEqualTo("COMPLETED");
+        assertThat(result.getSummary()).isEqualTo("AI Analysis Summary");
+
+        // Should not trigger auto-analysis since it already exists
+        verify(analysisService, never()).triggerAnalysis(anyLong());
+    }
+
+    @Test
+    void testGetAnomalyAutoTriggersAnalysis() {
+        // Given
+        Long anomalyId = 10L;
+        AnomalyDetailResponse mockResponse = new AnomalyDetailResponse(
+                anomalyId,
+                "Anomaly_EQP-01_TEMP",
+                Severity.WARNING,
+                "DEPOSITION",
+                "EQP-01",
+                "TEMP",
+                "NELSON_RULE_3",
+                "HIGH",
+                10,
+                20.0,
+                30.0,
+                25.0,
+                22.0,
+                3.0,
+                13.6,
+                "Nelson Rule 3 Violation",
+                Instant.parse("2026-06-10T12:00:00Z"),
+                Instant.parse("2026-06-10T12:00:59Z"),
+                null,
+                null,
+                java.util.List.of()
+        );
+
+        when(anomalyRepository.fetchAnomaly(anomalyId)).thenReturn(mockResponse);
+
+        // When
+        AnomalyDetailResponse result = anomalyService.getAnomaly(anomalyId);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(anomalyId);
+        // Status should be set to RUNNING temporarily
+        assertThat(result.getAnalysisStatus()).isEqualTo("RUNNING");
+
+        // Verify triggerAnalysis was auto-called
+        verify(analysisService, times(1)).triggerAnalysis(anomalyId);
+    }
+
+    @Test
+    void testGetAnomalyNotFound() {
+        // Given
+        Long anomalyId = 999L;
+        when(anomalyRepository.fetchAnomaly(anomalyId)).thenReturn(null);
+
+        // When / Then
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.factory.anomaly.exception.AnomalyException.class,
+                () -> anomalyService.getAnomaly(anomalyId)
+        );
+        verify(analysisService, never()).triggerAnalysis(anyLong());
     }
 }
