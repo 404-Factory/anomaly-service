@@ -38,8 +38,8 @@ spec:
     transforms.outbox.table.field.event.payload: "payload"
     transforms.outbox.table.fields.additional.placement: "event_type:envelope:eventType,id:envelope:idempotencyKey,aggregate_type:envelope:aggregateType,aggregate_id:envelope:aggregateId,trace_id:envelope:traceId,timestamp:envelope:timestamp"
     transforms.outbox.table.expand.json.payload: "true"
-    transforms.outbox.route.by.field: event_type
-    transforms.outbox.route.topic.replacement: anomaly.${routedByValue}
+    transforms.outbox.route.by.field: "aggregate_type"
+    transforms.outbox.route.topic.replacement: ${routedByValue}.event
 
     transforms.insertField.type: "org.apache.kafka.connect.transforms.InsertField$Value"
     transforms.insertField.static.field: "envelopeType"
