@@ -31,10 +31,11 @@ spring:
 sigma:
   event:
     consumer:
-      topics: "management-projection"
+      topics: "management-projection,flink.sensor-violations"
       groupId: "anomaly-consumer-group"
       subscription:
         - "AnalysisCompleted"
+        - "SensorViolation"
 
 management:
   endpoints:

@@ -43,10 +43,3 @@ app:
   time-zone: UTC
   event:
     publish-enabled: ${EVENT_PUBLISH_ENABLED:false}
-  kafka:
-    consumer:
-      sensor-topic: ${KAFKA_TOPIC_SENSOR_DATA:fab-semiconductor-001}
-
-kafka:
-  topic:
-    anomaly-detected: ${KAFKA_TOPIC_ANOMALY_DETECTED:anomaly.detected}

@@ -12,8 +12,8 @@ public class SensorRedisRepository {
 
     private final StringRedisTemplate redisTemplate;
 
-    public Long getAnomalyCache(String equipmentCode, String sensorType, String ruleName, String anomalyType) {
-        String cacheKey = String.format("anomaly:cache:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
+    public Long getAnomalyCache(Long equipementId, String sensorType, String ruleName, String anomalyType) {
+        String cacheKey = String.format("anomaly:cache:%s:%s:%s:%s", equipementId, sensorType, ruleName, anomalyType);
         String val = redisTemplate.opsForValue().get(cacheKey);
         if (val != null) {
             try {
@@ -24,20 +24,53 @@ public class SensorRedisRepository {
         }
         return null;
     }
-
-    public void setAnomalyCache(String equipmentCode, String sensorType, String ruleName, String anomalyType, Long anomalyId, long ttlSeconds) {
-        String cacheKey = String.format("anomaly:cache:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
+    public void setAnomalyCache(Long equipementId, String sensorType, String ruleName, String anomalyType, Long anomalyId, long ttlSeconds) {
+        String cacheKey = String.format("anomaly:cache:%s:%s:%s:%s", equipementId, sensorType, ruleName, anomalyType);
         redisTemplate.opsForValue().set(cacheKey, String.valueOf(anomalyId), Duration.ofSeconds(ttlSeconds));
     }
 
-    public boolean acquireLock(String equipmentCode, String sensorType, String ruleName, String anomalyType, long expireSeconds) {
-        String lockKey = String.format("anomaly:lock:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
+    public boolean acquireLock(Long equipementId, String sensorType, String ruleName, String anomalyType, long expireSeconds) {
+        String lockKey = String.format("anomaly:lock:%s:%s:%s:%s", equipementId, sensorType, ruleName, anomalyType);
         Boolean success = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(expireSeconds));
         return success != null && success;
     }
+    
 
-    public void releaseLock(String equipmentCode, String sensorType, String ruleName, String anomalyType) {
-        String lockKey = String.format("anomaly:lock:%s:%s:%s:%s", equipmentCode, sensorType, ruleName, anomalyType);
+    public void releaseLock(Long equipementId, String sensorType, String ruleName, String anomalyType) {
+        String lockKey = String.format("anomaly:lock:%s:%s:%s:%s", equipementId, sensorType, ruleName, anomalyType);
         redisTemplate.delete(lockKey);
     }
+    
+    // 구버전
+    public Long getAnomalyCache(String equipementCode, String sensorType, String ruleName, String anomalyType) {
+
+        String cacheKey = String.format("anomaly:cache:%s:%s:%s:%s", equipementCode, sensorType, ruleName, anomalyType);
+        String val = redisTemplate.opsForValue().get(cacheKey);
+        if (val != null) {
+            try {
+                return Long.parseLong(val);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+    
+    public void setAnomalyCache(String equipementCode, String sensorType, String ruleName, String anomalyType, Long anomalyId, long ttlSeconds) {
+        String cacheKey = String.format("anomaly:cache:%s:%s:%s:%s", equipementCode, sensorType, ruleName, anomalyType);
+        redisTemplate.opsForValue().set(cacheKey, String.valueOf(anomalyId), Duration.ofSeconds(ttlSeconds));
+    }
+
+    
+    public boolean acquireLock(String equipementCode, String sensorType, String ruleName, String anomalyType, long expireSeconds) {
+        String lockKey = String.format("anomaly:lock:%s:%s:%s:%s", equipementCode, sensorType, ruleName, anomalyType);
+        Boolean success = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofSeconds(expireSeconds));
+        return success != null && success;
+    }
+    
+    public void releaseLock(String equipementCode, String sensorType, String ruleName, String anomalyType) {
+        String lockKey = String.format("anomaly:lock:%s:%s:%s:%s", equipementCode, sensorType, ruleName, anomalyType);
+        redisTemplate.delete(lockKey);
+    }
+
 }
