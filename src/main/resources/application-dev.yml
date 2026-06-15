@@ -5,7 +5,7 @@ spring:
 
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:anomaly_db}?sslMode=trust
+    url: ${DB_URL:jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:anomaly_db}?sslMode=trust}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:
@@ -42,7 +42,7 @@ spring:
 app:
   time-zone: UTC
   event:
-    publish-enabled: ${EVENT_PUBLISH_ENABLED:false}
+    publish-enabled: ${EVENT_PUBLISH_ENABLED:true}
   kafka:
     consumer:
       sensor-topic: ${KAFKA_TOPIC_SENSOR_DATA:fab-semiconductor-001}

@@ -44,6 +44,7 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
                 anomaly.recipeParameter,
                 anomaly.ruleName.stringValue(),
                 anomaly.anomalyType.stringValue(),
+                anomaly.firstDetectedAt,
                 anomaly.lastDetectedAt,
                 anomaly.detectionReason,
                 JPAExpressions.select(violation.count())
