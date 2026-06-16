@@ -114,11 +114,15 @@ public class AnomalyServiceImpl implements AnomalyService {
             violation.detectedAt()
         );
 
-        if (violation.anomalyType() == null || violation.ruleName() == null) {
+        // ruleName은 항상 필요. anomalyType은 세션을 여는 "비정상" 이벤트에만 필요하다.
+        // NORMAL(정상 범위 복구) 이벤트는 anomalyType이 null로 오는데, 세션 resolve를 위해 통과시켜야 한다.
+        boolean isNormal = (violation.severity() == null || violation.severity() == Severity.NORMAL);
+        if (violation.ruleName() == null || (violation.anomalyType() == null && !isNormal)) {
             log.warn(
-                "Skip anomaly detection. reason=MISSING_REQUIRED_FIELD, anomalyType={}, ruleName={}, violation={}",
+                "Skip anomaly detection. reason=MISSING_REQUIRED_FIELD, anomalyType={}, ruleName={}, severity={}, violation={}",
                 violation.anomalyType(),
                 violation.ruleName(),
+                violation.severity(),
                 violation
             );
             return Optional.empty();
@@ -128,7 +132,7 @@ public class AnomalyServiceImpl implements AnomalyService {
         String equipmentCode = String.valueOf(equipmentId);
         String sensorId = violation.sensorId();
         String ruleNameStr = violation.ruleName().name();
-        String anomalyTypeStr = violation.anomalyType().name();
+        String anomalyTypeStr = violation.anomalyType() != null ? violation.anomalyType().name() : null;
 
         // 1. Acquire Distributed Lock (with spin-lock retry)
         boolean isLocked = false;
