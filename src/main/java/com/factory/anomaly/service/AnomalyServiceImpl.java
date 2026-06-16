@@ -16,6 +16,9 @@ import com.factory.anomaly.infrastructure.repository.AnomalyRepository;
 import com.factory.anomaly.infrastructure.repository.EquipmentProjectionRepository;
 import com.factory.common.event.support.DomainEventFactory;
 import com.factory.common.kafka.publisher.EventPublisher;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -49,6 +52,23 @@ public class AnomalyServiceImpl implements AnomalyService {
         anomalyRepository.findById(anomalyId)
             .orElseThrow(() -> new AnomalyException(AnomalyErrorCode.ANOMALY_LOG_NOT_FOUND));
         return anomalyRepository.fetchAnomaly(anomalyId);
+    }
+
+    @Override
+    public long countAnomalies(String equipmentName, LocalDateTime since) {
+        if (equipmentName == null || since == null) {
+            return 0L;
+        }
+        // anomaly는 equipmentId(Long)로 저장하므로 projection으로 name→id 해결
+        Long equipmentId = equipmentProjectionRepository.findByName(equipmentName)
+            .map(EquipmentProjection::getId)
+            .orElse(null);
+        if (equipmentId == null) {
+            return 0L;
+        }
+        Instant sinceInstant = since.toInstant(ZoneOffset.UTC);
+        return anomalyRepository.countByEquipmentIdAndFirstDetectedAtGreaterThanEqual(
+            equipmentId, sinceInstant);
     }
 
     @Override
