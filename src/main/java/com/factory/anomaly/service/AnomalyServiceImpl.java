@@ -222,18 +222,21 @@ public class AnomalyServiceImpl implements AnomalyService {
                         violation.severity()
                     );
 
-                    Violation violationEntity = Violation.builder()
-                        .equipmentId(violation.equipmentId())
-                        .sensorId(violation.sensorId())
-                        .severity("NORMAL")
-                        .detectedAt(violation.detectedAt())
-                        .value(violation.measuredValue())
-                        .referenceValue(violation.referenceValue())
-                        .deviation(violation.deviation())
-                        .deviationRate(violation.deviationRate())
-                        .description(violation.reason())
-                        .build();
-                    existingAnomaly.addViolation(violationEntity);
+                    // NORMAL(정상 범위 복구) 이벤트는 위반이 아니므로 Violation 레코드를 남기지 않는다.
+                    // (회복 시점은 anomaly.lastDetectedAt + status=RESOLVED 로 보존됨)
+                    // 회복 이벤트는 measuredValue 등이 null 이라 NOT-NULL 인 Violation.value 제약을 위반하여 주석 처리함.
+                    // Violation violationEntity = Violation.builder()
+                    //     .equipmentId(violation.equipmentId())
+                    //     .sensorId(violation.sensorId())
+                    //     .severity("NORMAL")
+                    //     .detectedAt(violation.detectedAt())
+                    //     .value(violation.measuredValue())
+                    //     .referenceValue(violation.referenceValue())
+                    //     .deviation(violation.deviation())
+                    //     .deviationRate(violation.deviationRate())
+                    //     .description(violation.reason())
+                    //     .build();
+                    // existingAnomaly.addViolation(violationEntity);
 
                     Anomaly updatedAnomaly = anomalyRepository.save(existingAnomaly);
 
