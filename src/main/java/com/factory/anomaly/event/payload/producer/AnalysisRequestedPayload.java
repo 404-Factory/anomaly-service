@@ -1,6 +1,7 @@
 package com.factory.anomaly.event.payload.producer;
 
 import com.factory.common.event.domain.EventPayload;
+import java.time.Instant;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,6 +16,10 @@ public class AnalysisRequestedPayload implements EventPayload {
     private Long anomalyId;
     private Long equipmentId;
     private String recipeParameter;
+    private String ruleName;
+    private String anomalyType;
+    private String detectionReason;
+    private Instant firstDetectedAt;
     private String summaryText;
     private String recommendedAnalysisType;
     private List<String> analysisFocus;
