@@ -95,11 +95,11 @@ class AnomalyServiceTest {
         );
 
         // Mock Lock acquisition using sensorId
-        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), anyLong()))
                 .thenReturn(true);
 
         // Redis cache is empty
-        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorId, "NELSON_RULE_3", "HIGH"))
+        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorId, "NELSON_RULE_3"))
                 .thenReturn(null);
 
         // EquipmentProjection mock
@@ -145,11 +145,11 @@ class AnomalyServiceTest {
         assertThat(log.getSampleCount()).isEqualTo(10);
 
         // Verify set cache was called with sensorId
-        verify(sensorRedisRepository).setAnomalyCache(equipmentCode, sensorId, "NELSON_RULE_3", "HIGH", 10L, 300);
+        verify(sensorRedisRepository).setAnomalyCache(equipmentCode, sensorId, "NELSON_RULE_3", 10L);
         // Verify save was called once
         verify(anomalyRepository, times(1)).save(any(Anomaly.class));
         // Verify release lock was called with sensorId
-        verify(sensorRedisRepository).releaseLock(equipmentCode, sensorId, "NELSON_RULE_3", "HIGH");
+        verify(sensorRedisRepository).releaseLock(equipmentCode, sensorId, "NELSON_RULE_3");
     }
 
     @Test
@@ -179,11 +179,11 @@ class AnomalyServiceTest {
         );
 
         // Mock Lock acquisition with sensorId
-        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), anyLong()))
                 .thenReturn(true);
 
         // Redis cache has key pointing to anomaly ID 10L
-        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorId, "NELSON_RULE_3", "HIGH"))
+        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorId, "NELSON_RULE_3"))
                 .thenReturn(10L);
 
         // Mock existing anomaly in DB
@@ -219,9 +219,9 @@ class AnomalyServiceTest {
         verify(anomalyRepository, times(1)).save(existingAnomaly);
         // Verify no new anomaly was created via builder
         verify(equipmentProjectionRepository, never()).findById(anyLong());
-        verify(sensorRedisRepository, never()).setAnomalyCache(anyString(), anyString(), anyString(), anyString(), anyLong(), anyLong());
+        verify(sensorRedisRepository, never()).setAnomalyCache(anyString(), anyString(), anyString(), anyLong());
         // Verify release lock was called with sensorId
-        verify(sensorRedisRepository).releaseLock(equipmentCode, sensorId, "NELSON_RULE_3", "HIGH");
+        verify(sensorRedisRepository).releaseLock(equipmentCode, sensorId, "NELSON_RULE_3");
     }
 
     @Test
@@ -257,25 +257,25 @@ class AnomalyServiceTest {
         java.util.concurrent.atomic.AtomicInteger dbUpdateCount = new java.util.concurrent.atomic.AtomicInteger(0);
 
         // Mock Lock acquisition: only succeed if lock is not currently held
-        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), anyLong()))
                 .thenAnswer(invocation -> lockAcquired.compareAndSet(false, true));
 
         // Mock Lock release
         doAnswer(invocation -> {
             lockAcquired.set(false);
             return null;
-        }).when(sensorRedisRepository).releaseLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), eq("HIGH"));
+        }).when(sensorRedisRepository).releaseLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"));
 
         // Mock Cache Read
-        when(sensorRedisRepository.getAnomalyCache(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), eq("HIGH")))
+        when(sensorRedisRepository.getAnomalyCache(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3")))
                 .thenAnswer(invocation -> cacheReference.get());
 
         // Mock Cache Write
         doAnswer(invocation -> {
-            Long id = invocation.getArgument(4);
+            Long id = invocation.getArgument(3);
             cacheReference.set(id);
             return null;
-        }).when(sensorRedisRepository).setAnomalyCache(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), eq("HIGH"), anyLong(), anyLong());
+        }).when(sensorRedisRepository).setAnomalyCache(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), anyLong());
 
         // EquipmentProjection mock
         EquipmentProjection equipment = mock(EquipmentProjection.class);
@@ -387,9 +387,9 @@ class AnomalyServiceTest {
                 "Nelson Rule 3 Violation"
         );
 
-        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), eq("HIGH"), anyLong()))
+        when(sensorRedisRepository.acquireLock(eq(equipmentCode), eq(sensorId), eq("NELSON_RULE_3"), anyLong()))
                 .thenReturn(true);
-        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorId, "NELSON_RULE_3", "HIGH"))
+        when(sensorRedisRepository.getAnomalyCache(equipmentCode, sensorId, "NELSON_RULE_3"))
                 .thenReturn(null);
 
         EquipmentProjection equipment = mock(EquipmentProjection.class);
