@@ -4,6 +4,7 @@ import lombok.Getter;
 
 @Getter
 public enum Severity {
+    NORMAL("정상"),
     CAUTION("주의"),
     WARNING("경고"),
     CRITICAL("긴급");

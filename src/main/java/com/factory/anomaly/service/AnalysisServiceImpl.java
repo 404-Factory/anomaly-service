@@ -78,7 +78,7 @@ public class AnalysisServiceImpl implements AnalysisService {
         AnalysisRequestedPayload payload = buildAnalysisPayload(anomaly);
 
         eventPublisher.publish(
-            domainEventFactory.create(AnalysisEventType.ANALYSIS_REQUESTED, "Analysis",
+            domainEventFactory.create(AnalysisEventType.ANALYSIS_REQUESTED, "Anomaly",
                 String.valueOf(anomaly.getId()), payload));
     }
 
