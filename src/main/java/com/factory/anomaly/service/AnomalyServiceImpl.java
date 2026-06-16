@@ -338,6 +338,8 @@ public class AnomalyServiceImpl implements AnomalyService {
                 .recipeParameter(sensorType)
                 .severity(savedAnomaly.getSeverity().name())
                 .occurredTime(savedAnomaly.getLastDetectedAt())
+                .firstDetectedAt(savedAnomaly.getFirstDetectedAt())
+                .lastDetectedAt(savedAnomaly.getLastDetectedAt())
                 .causeRule(savedAnomaly.getRuleName().name())
                 .build();
 
