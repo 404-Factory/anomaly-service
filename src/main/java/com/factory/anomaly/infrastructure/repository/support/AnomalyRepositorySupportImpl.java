@@ -58,6 +58,7 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
                 equipmentIdEq(equipmentId),
                 keywordLike(keyword)
             )
+            .orderBy(anomaly.firstDetectedAt.desc())
             .offset(pageable.getOffset())
             .limit(pageable.getPageSize())
             .fetch();
