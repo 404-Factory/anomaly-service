@@ -23,7 +23,7 @@ public class AnomalyController {
 
     @GetMapping
     public Page<AnomalyResponse> getAnomalies(@ModelAttribute AnomalySearchCondition condition,
-        @PageableDefault Pageable pageable) {
+            @PageableDefault Pageable pageable) {
         Long processId = condition.getProcessId();
         Long equipmentId = condition.getEquipmentId();
         String keyword = condition.getKeyword();
@@ -32,15 +32,13 @@ public class AnomalyController {
 
     @GetMapping("/{id}")
     public ResponseEntity<AnomalyDetailResponse> getAnomalyLogDetail(
-        @PathVariable(name = "id") Long id
-    ) {
+            @PathVariable(name = "id") Long id) {
         return ResponseEntity.ok(anomalyService.getAnomaly(id));
     }
 
     @GetMapping("/{id}/analysis")
     public ResponseEntity<AnalysisResponseDto> getAnalysis(
-        @PathVariable(name = "id") Long id
-    ) {
+            @PathVariable(name = "id") Long id) {
         return ResponseEntity.ok(analysisService.getAnalysis(id));
     }
 }
