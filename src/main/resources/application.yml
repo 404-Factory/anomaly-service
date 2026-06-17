@@ -46,6 +46,8 @@ management:
       show-details: never
 
 app:
+  event:
+    publish-enabled: ${EVENT_PUBLISH_ENABLED:false}
   kafka:
     consumer:
       violation-topic: ${KAFKA_VIOLATIONS_TOPIC:sensor-violations}

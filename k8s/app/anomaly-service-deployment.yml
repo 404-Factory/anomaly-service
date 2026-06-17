@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: anomaly-service
-          image: $IMAGE:$IMAGE_TAG
+          image: 310095858382.dkr.ecr.ap-northeast-2.amazonaws.com/anomaly-service:v3
           ports:
             - containerPort: 8080
           envFrom:

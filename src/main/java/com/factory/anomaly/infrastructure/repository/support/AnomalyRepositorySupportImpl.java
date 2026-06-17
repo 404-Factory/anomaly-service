@@ -52,7 +52,7 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
             ))
             .from(anomaly)
             .leftJoin(equipmentProjection)
-            .on(equipmentProjection.id.eq(anomaly.equipmentId.longValue()))
+            .on(equipmentProjection.id.eq(anomaly.equipmentId))
             .where(
                 processIdEq(processId),
                 equipmentIdEq(equipmentId),
@@ -67,7 +67,7 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
             .select(anomaly.count())
             .from(anomaly)
             .leftJoin(equipmentProjection)
-            .on(equipmentProjection.id.eq(anomaly.equipmentId.longValue()))
+            .on(equipmentProjection.id.eq(anomaly.equipmentId))
             .where(
                 processIdEq(processId),
                 equipmentIdEq(equipmentId),

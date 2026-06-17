@@ -166,11 +166,27 @@ public class AnomalyServiceImpl implements AnomalyService {
 
         try {
             // 2. Delegate to REQUIRES_NEW transactional method so DB commits before lock release
-            return self.processAnomalyDetectionInTransaction(
+            Optional<Anomaly> result = self.processAnomalyDetectionInTransaction(
                 violation, equipmentId, equipmentCode, sensorId, ruleNameStr, anomalyTypeStr
             );
+
+            // 3. If a NEW anomaly session was started (ACTIVE), auto-trigger AI analysis.
+            //    This runs AFTER the REQUIRES_NEW transaction commits, so the anomaly row
+            //    is already visible to AnalysisServiceImpl when it reads it.
+            result.ifPresent(savedAnomaly -> {
+                if ("ACTIVE".equals(savedAnomaly.getStatus())) {
+                    try {
+                        log.info("Auto-triggering AI analysis for new anomaly. anomalyId={}", savedAnomaly.getId());
+                        analysisService.triggerAnalysis(savedAnomaly.getId());
+                    } catch (Exception e) {
+                        log.error("Failed to auto-trigger AI analysis for anomaly {}", savedAnomaly.getId(), e);
+                    }
+                }
+            });
+
+            return result;
         } finally {
-            // 3. Always release the lock
+            // 4. Always release the lock
             sensorRedisRepository.releaseLock(equipmentCode, sensorId, ruleNameStr);
         }
     }
