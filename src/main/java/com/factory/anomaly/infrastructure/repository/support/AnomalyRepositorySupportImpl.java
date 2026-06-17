@@ -66,6 +66,8 @@ public class AnomalyRepositorySupportImpl implements AnomalyRepositorySupport {
         JPAQuery<Long> countQuery = queryFactory
             .select(anomaly.count())
             .from(anomaly)
+            .leftJoin(equipmentProjection)
+            .on(equipmentProjection.id.eq(anomaly.equipmentId.longValue()))
             .where(
                 processIdEq(processId),
                 equipmentIdEq(equipmentId),
